@@ -1,6 +1,7 @@
 {
   "dependencies": {
     "crypto-js": "^4.2.0",
+    "expo-constants": "^18.0.13",
     "react-native-keychain": "^10.0.0"
   },
   "devDependencies": {
