@@ -1,29 +1,9 @@
 {
-  "name": "petchain-mobileapp",
-  "version": "1.0.0",
-  "description": "Mobile App contributions are here",
-  "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/Ndifreke000/PetChain-MobileApp.git"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs",
-  "bugs": {
-    "url": "https://github.com/Ndifreke000/PetChain-MobileApp/issues"
-  },
-  "homepage": "https://github.com/Ndifreke000/PetChain-MobileApp#readme",
   "dependencies": {
-    "@react-native-async-storage/async-storage": "^2.2.0",
-    "axios": "^1.13.5"
+    "crypto-js": "^4.2.0",
+    "react-native-keychain": "^10.0.0"
   },
   "devDependencies": {
-    "@types/node": "^25.3.0",
-    "typescript": "^5.9.3"
+    "@types/crypto-js": "^4.2.2"
   }
 }
