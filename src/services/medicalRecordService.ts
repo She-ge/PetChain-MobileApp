@@ -97,7 +97,7 @@ export const getMedicalRecords = async (
 
     return response.data;
   } catch (error) {
-    handleApiError(error);
+    return handleApiError(error);
   }
 };
 
@@ -112,7 +112,7 @@ export const getVaccinationHistory = async (petId: string): Promise<Vaccination[
     return response.data as Vaccination[];
   } catch (error) {
     if (error instanceof MedicalRecordError) throw error;
-    handleApiError(error);
+    return handleApiError(error);
   }
 };
 
@@ -127,6 +127,6 @@ export const getTreatmentHistory = async (petId: string): Promise<Treatment[]> =
     return response.data as Treatment[];
   } catch (error) {
     if (error instanceof MedicalRecordError) throw error;
-    handleApiError(error);
+    return handleApiError(error);
   }
 };
