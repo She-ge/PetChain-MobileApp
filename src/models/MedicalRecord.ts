@@ -191,6 +191,20 @@ export interface MedicalRecord {
   /** Optional medical documents attached to the record. */
   documents?: MedicalDocumentMetadata[];
 
+  /** Veterinarian information for the record. */
+  veterinarian?: {
+    id: string;
+    name: string;
+    email: string;
+    phone?: string;
+    licenseNumber?: string;
+    clinic?: {
+      name: string;
+      address?: string;
+      phone?: string;
+    };
+  };
+
   /** Free-form notes. */
   notes?: string;
 
