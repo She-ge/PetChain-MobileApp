@@ -44,6 +44,14 @@ export interface StoredSession {
   refreshToken?: string;
 }
 
+type OAuthProvider = 'google' | 'apple' | 'facebook';
+
+const OAUTH_ENDPOINTS: Record<OAuthProvider, string> = {
+  google: '/auth/oauth/google',
+  apple: '/auth/oauth/apple',
+  facebook: '/auth/oauth/facebook',
+};
+
 interface JwtPayload {
   sub: string;
   exp: number;
