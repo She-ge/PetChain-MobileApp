@@ -4,6 +4,8 @@ import config from '../config';
 import type {
   LoginRequest,
   LoginResponse,
+  RegisterRequest,
+  RegisterResponse,
   RefreshTokenResponse,
 } from '../../backend/types/api';
 import { API_ENDPOINTS } from '../../backend/types/api';
@@ -34,7 +36,12 @@ export interface AuthSession {
   user: LoginResponse['user'];
   token: string;
   refreshToken?: string;
-  expiresIn: number;
+  expiresIn?: number;
+}
+
+export interface StoredSession {
+  token: string;
+  refreshToken?: string;
 }
 
 type OAuthProvider = 'google' | 'apple' | 'facebook';
@@ -193,22 +200,19 @@ export async function login(
   }
 }
 
-export async function loginWithOAuth(
-  provider: OAuthProvider,
-  idToken: string,
-): Promise<AuthSession> {
-  if (!OAUTH_ENDPOINTS[provider]) {
-    throw new AuthError('Unsupported OAuth provider', 'UNSUPPORTED_OAUTH_PROVIDER');
-  }
-
-  if (!idToken) {
-    throw new AuthError('OAuth token is required', 'MISSING_OAUTH_TOKEN');
+export async function register(payload: RegisterRequest): Promise<AuthSession> {
+  if (!payload.email || !payload.password || !payload.name) {
+    throw new AuthError(
+      'Name, email, and password are required',
+      'MISSING_REGISTRATION_FIELDS',
+    );
   }
 
   try {
-    const { data } = await authClient.post<LoginResponse>(OAUTH_ENDPOINTS[provider], {
-      idToken,
-    });
+    const { data } = await authClient.post<RegisterResponse>(
+      API_ENDPOINTS.AUTH_REGISTER,
+      payload,
+    );
 
     await storeToken(data.token);
     if (data.refreshToken) {
@@ -219,15 +223,13 @@ export async function loginWithOAuth(
       user: data.user,
       token: data.token,
       refreshToken: data.refreshToken,
-      expiresIn: data.expiresIn,
     };
   } catch (err: unknown) {
     if (axios.isAxiosError(err)) {
-      const axiosErr = err as AxiosLikeError;
-      const msg = axiosErr.response?.data?.error?.message;
-      throw new AuthError(msg ?? 'OAuth login failed', 'OAUTH_LOGIN_FAILED');
+      const msg = (err as AxiosLikeError).response?.data?.error?.message;
+      throw new AuthError(msg ?? 'Registration failed', 'REGISTRATION_FAILED');
     }
-    throw new AuthError('Network error during OAuth login', 'NETWORK_ERROR');
+    throw new AuthError('Network error during registration', 'NETWORK_ERROR');
   }
 }
 
@@ -323,5 +325,91 @@ export async function refreshToken(): Promise<string> {
       throw new AuthError(msg ?? 'Token refresh failed', 'REFRESH_FAILED');
     }
     throw new AuthError('Network error during token refresh', 'NETWORK_ERROR');
+  }
+}
+
+export async function requestPasswordReset(email: string): Promise<void> {
+  if (!email) {
+    throw new AuthError('Email is required', 'MISSING_EMAIL');
+  }
+
+  try {
+    await authClient.post(API_ENDPOINTS.AUTH_FORGOT_PASSWORD, { email });
+  } catch (err: unknown) {
+    if (axios.isAxiosError(err)) {
+      const msg = (err as AxiosLikeError).response?.data?.error?.message;
+      throw new AuthError(msg ?? 'Password reset request failed', 'PASSWORD_RESET_REQUEST_FAILED');
+    }
+    throw new AuthError('Network error while requesting password reset', 'NETWORK_ERROR');
+  }
+}
+
+export async function resetPassword(token: string, newPassword: string): Promise<void> {
+  if (!token || !newPassword) {
+    throw new AuthError('Reset token and new password are required', 'MISSING_RESET_INPUT');
+  }
+
+  try {
+    await authClient.post(API_ENDPOINTS.AUTH_RESET_PASSWORD, {
+      token,
+      newPassword,
+    });
+  } catch (err: unknown) {
+    if (axios.isAxiosError(err)) {
+      const msg = (err as AxiosLikeError).response?.data?.error?.message;
+      throw new AuthError(msg ?? 'Password reset failed', 'PASSWORD_RESET_FAILED');
+    }
+    throw new AuthError('Network error while resetting password', 'NETWORK_ERROR');
+  }
+}
+
+export async function verifyEmail(token: string): Promise<void> {
+  if (!token) {
+    throw new AuthError('Verification token is required', 'MISSING_VERIFICATION_TOKEN');
+  }
+
+  try {
+    await authClient.post(API_ENDPOINTS.AUTH_VERIFY_EMAIL, { token });
+  } catch (err: unknown) {
+    if (axios.isAxiosError(err)) {
+      const msg = (err as AxiosLikeError).response?.data?.error?.message;
+      throw new AuthError(msg ?? 'Email verification failed', 'EMAIL_VERIFICATION_FAILED');
+    }
+    throw new AuthError('Network error while verifying email', 'NETWORK_ERROR');
+  }
+}
+
+export async function getSession(): Promise<StoredSession | null> {
+  const token = await getToken();
+  if (!token) return null;
+
+  let refresh: string | null = null;
+  try {
+    const refreshCreds = await Keychain.getGenericPassword({
+      service: KEYCHAIN_REFRESH_SERVICE,
+    });
+    refresh = refreshCreds ? refreshCreds.password : null;
+  } catch {
+    refresh = null;
+  }
+
+  return {
+    token,
+    refreshToken: refresh ?? undefined,
+  };
+}
+
+export async function isBiometricAuthenticationAvailable(): Promise<boolean> {
+  const maybeKeychain = Keychain as unknown as {
+    getSupportedBiometryType?: () => Promise<unknown>;
+  };
+  if (!maybeKeychain.getSupportedBiometryType) {
+    return false;
+  }
+  try {
+    const biometryType = await maybeKeychain.getSupportedBiometryType();
+    return !!biometryType;
+  } catch {
+    return false;
   }
 }
