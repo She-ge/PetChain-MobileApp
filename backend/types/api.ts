@@ -405,7 +405,7 @@ export interface BatchVerifyResponse {
   ledger?: number;
   txHash?: string;
   timestamp?: string;
-}[]
+}
 
 /**
  * API Endpoint paths
@@ -481,7 +481,7 @@ export function isApiError(response: ApiResponse | ApiError): response is ApiErr
  * Type guard to check if response is paginated
  */
 export function isPaginatedResponse<T>(
-  response: ApiResponse<T> | PaginatedResponse<T>
+  response: ApiResponse<T> | PaginatedResponse<T>,
 ): response is PaginatedResponse<T> {
   return 'pagination' in response;
 }

@@ -1,4 +1,5 @@
 import axios from 'axios';
+
 import apiClient from './apiClient';
 import { parseQRCodeData } from './qrCodeService';
 
@@ -104,10 +105,9 @@ function toPetServiceError(error: unknown): PetServiceError {
   return new PetServiceError('Unexpected pet service error', 'UNKNOWN_ERROR');
 }
 
-// replacePathParam is reserved for future parameterised endpoint helpers
-// function replacePathParam(template: string, key: string, value: string): string {
-//   return template.replace(`:${key}`, encodeURIComponent(value));
-// }
+function _replacePathParam(template: string, key: string, value: string): string {
+  return template.replace(`:${key}`, encodeURIComponent(value));
+}
 
 function extractPetIdFromQrScan(scanData: string): string | null {
   const trimmed = scanData.trim();
@@ -181,10 +181,7 @@ export async function createPet(data: CreatePetInput): Promise<Pet> {
   }
 }
 
-export async function updatePet(
-  petId: string,
-  data: UpdatePetInput,
-): Promise<Pet> {
+export async function updatePet(petId: string, data: UpdatePetInput): Promise<Pet> {
   const normalizedPetId = petId.trim();
   if (!normalizedPetId) {
     throw new PetServiceError('Pet ID is required', 'INVALID_PET_ID');

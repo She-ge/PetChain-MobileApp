@@ -1,4 +1,4 @@
-import NetInfo, { NetInfoState, NetInfoStateType } from '@react-native-community/netinfo';
+import NetInfo, { type NetInfoState, type NetInfoStateType } from '@react-native-community/netinfo';
 
 type NetworkCallback = (isOnline: boolean) => void;
 type SyncCallback = () => Promise<void>;
@@ -20,7 +20,7 @@ class NetworkMonitor {
       }
 
       // Notify all callbacks
-      this.callbacks.forEach(callback => callback(this.isCurrentlyOnline));
+      this.callbacks.forEach((callback) => callback(this.isCurrentlyOnline));
     });
   }
 
@@ -45,7 +45,7 @@ class NetworkMonitor {
   onNetworkChange(callback: NetworkCallback): () => void {
     this.callbacks.push(callback);
     return () => {
-      this.callbacks = this.callbacks.filter(cb => cb !== callback);
+      this.callbacks = this.callbacks.filter((cb) => cb !== callback);
     };
   }
 
@@ -68,6 +68,7 @@ export const startNetworkMonitoring = () => networkMonitor.startNetworkMonitorin
 export const stopNetworkMonitoring = () => networkMonitor.stopNetworkMonitoring();
 export const isOnline = () => networkMonitor.isOnline();
 export const getNetworkType = () => networkMonitor.getNetworkType();
-export const onNetworkChange = (callback: NetworkCallback) => networkMonitor.onNetworkChange(callback);
+export const onNetworkChange = (callback: NetworkCallback) =>
+  networkMonitor.onNetworkChange(callback);
 export const setSyncCallback = (callback: SyncCallback) => networkMonitor.setSyncCallback(callback);
 export const getNetworkQuality = () => networkMonitor.getNetworkQuality();

@@ -1,5 +1,6 @@
-import axios, { AxiosResponse } from 'axios';
+import axios, { type AxiosResponse } from 'axios';
 import CryptoJS from 'crypto-js';
+
 import type { MedicalRecord } from './medicalRecordService';
 
 // React Native compatible URLSearchParams implementation
@@ -21,9 +22,11 @@ interface IURLSearchParams {
 class URLSearchParamsPolyfill implements IURLSearchParams {
   private params: Map<string, string>;
 
-  constructor(init?: string | Record<string, string> | [string, string][] | URLSearchParamsPolyfill) {
+  constructor(
+    init?: string | Record<string, string> | [string, string][] | URLSearchParamsPolyfill,
+  ) {
     this.params = new Map();
-    
+
     if (typeof init === 'string') {
       const pairs = init.split('&');
       for (const pair of pairs) {
@@ -170,7 +173,10 @@ interface CacheEntry<T> {
 }
 
 class BlockchainServiceError extends Error {
-  constructor(message: string, public readonly code: string) {
+  constructor(
+    message: string,
+    public readonly code: string,
+  ) {
     super(message);
     this.name = 'BlockchainServiceError';
   }
@@ -192,9 +198,15 @@ const handleBlockchainError = (error: unknown): never => {
 
     switch (status) {
       case 400:
-        throw new BlockchainServiceError(`Invalid blockchain request: ${message}`, 'INVALID_REQUEST');
+        throw new BlockchainServiceError(
+          `Invalid blockchain request: ${message}`,
+          'INVALID_REQUEST',
+        );
       case 404:
-        throw new BlockchainServiceError('Record or transaction not found on blockchain', 'NOT_FOUND');
+        throw new BlockchainServiceError(
+          'Record or transaction not found on blockchain',
+          'NOT_FOUND',
+        );
       case 408:
         throw new BlockchainServiceError('Blockchain request timed out', 'TIMEOUT');
       case 429:
@@ -203,7 +215,10 @@ const handleBlockchainError = (error: unknown): never => {
       case 502:
       case 503:
       case 504:
-        throw new BlockchainServiceError('Blockchain service is temporarily unavailable', 'SERVICE_UNAVAILABLE');
+        throw new BlockchainServiceError(
+          'Blockchain service is temporarily unavailable',
+          'SERVICE_UNAVAILABLE',
+        );
       default:
         throw new BlockchainServiceError(`Blockchain API error: ${message}`, 'API_ERROR');
     }
@@ -281,10 +296,10 @@ const toCanonicalValue = (value: unknown): unknown => {
  */
 const computeRecordHash = (record: MedicalRecordWithChainData): string => {
   const {
-    hash,
-    recordHash,
-    txHash,
-    blockchainTxHash,
+    hash: _hash,
+    recordHash: _recordHash,
+    txHash: _txHash,
+    blockchainTxHash: _blockchainTxHash,
     ...payload
   } = record;
 
@@ -297,7 +312,7 @@ const computeRecordHash = (record: MedicalRecordWithChainData): string => {
  */
 export const verifyRecordOnChain = async (
   recordId: string,
-  hash: string
+  hash: string,
 ): Promise<StellarRecordVerification> => {
   const normalizedRecordId = recordId.trim();
   const normalizedHash = hash.trim().toLowerCase();
@@ -311,26 +326,27 @@ export const verifyRecordOnChain = async (
 
   const cacheKey = `verify:${normalizedRecordId}:${normalizedHash}`;
 
-  return queryWithCache<StellarRecordVerification>(cacheKey, async (): Promise<StellarRecordVerification> => {
-    try {
-      const response: AxiosResponse<StellarRecordVerification> = await axios.post(
-        `${API_BASE_URL}/blockchain/records/verify`,
-        { recordId: normalizedRecordId, hash: normalizedHash }
-      );
-      return response.data;
-    } catch (error) {
-      handleBlockchainError(error);
-      throw error; // unreachable but satisfies type checker
-    }
-  });
+  return queryWithCache<StellarRecordVerification>(
+    cacheKey,
+    async (): Promise<StellarRecordVerification> => {
+      try {
+        const response: AxiosResponse<StellarRecordVerification> = await axios.post(
+          `${API_BASE_URL}/blockchain/records/verify`,
+          { recordId: normalizedRecordId, hash: normalizedHash },
+        );
+        return response.data;
+      } catch (error) {
+        handleBlockchainError(error);
+        throw error; // unreachable but satisfies type checker
+      }
+    },
+  );
 };
 
 /**
  * Fetch Stellar transaction details via backend API.
  */
-export const getTransactionDetails = async (
-  txHash: string
-): Promise<StellarTransactionDetails> => {
+export const getTransactionDetails = async (txHash: string): Promise<StellarTransactionDetails> => {
   const normalizedTxHash = txHash.trim();
 
   if (!normalizedTxHash) {
@@ -339,17 +355,20 @@ export const getTransactionDetails = async (
 
   const cacheKey = `tx:${normalizedTxHash}`;
 
-  return queryWithCache<StellarTransactionDetails>(cacheKey, async (): Promise<StellarTransactionDetails> => {
-    try {
-      const response: AxiosResponse<StellarTransactionDetails> = await axios.get(
-        `${API_BASE_URL}/blockchain/transactions/${encodeURIComponent(normalizedTxHash)}`
-      );
-      return response.data;
-    } catch (error) {
-      handleBlockchainError(error);
-      throw error; // unreachable but satisfies type checker
-    }
-  });
+  return queryWithCache<StellarTransactionDetails>(
+    cacheKey,
+    async (): Promise<StellarTransactionDetails> => {
+      try {
+        const response: AxiosResponse<StellarTransactionDetails> = await axios.get(
+          `${API_BASE_URL}/blockchain/transactions/${encodeURIComponent(normalizedTxHash)}`,
+        );
+        return response.data;
+      } catch (error) {
+        handleBlockchainError(error);
+        throw error; // unreachable but satisfies type checker
+      }
+    },
+  );
 };
 
 /**
@@ -359,7 +378,7 @@ export const getTransactionDetails = async (
  * 3) validating the local hash against what is anchored on Stellar
  */
 export const verifyRecordIntegrity = async (
-  record: MedicalRecordWithChainData
+  record: MedicalRecordWithChainData,
 ): Promise<RecordIntegrityResult> => {
   if (!record?.id?.trim()) {
     throw new BlockchainServiceError('Record with valid ID is required', 'INVALID_RECORD');
@@ -388,7 +407,7 @@ export const verifyRecordIntegrity = async (
 export const storeRecordOnChain = async (
   recordId: string,
   hash: string,
-  metadata?: Record<string, unknown>
+  metadata?: Record<string, unknown>,
 ): Promise<StellarTransactionDetails> => {
   const normalizedRecordId = recordId.trim();
   const normalizedHash = hash.trim().toLowerCase();
@@ -402,29 +421,32 @@ export const storeRecordOnChain = async (
 
   const cacheKey = `store:${normalizedRecordId}:${normalizedHash}`;
 
-  return queryWithCache<StellarTransactionDetails>(cacheKey, async (): Promise<StellarTransactionDetails> => {
-    try {
-      const response: AxiosResponse<StellarTransactionDetails> = await axios.post(
-        `${API_BASE_URL}/blockchain/records/store`,
-        { 
-          recordId: normalizedRecordId, 
-          hash: normalizedHash,
-          metadata: metadata || {}
-        }
-      );
-      return response.data;
-    } catch (error) {
-      handleBlockchainError(error);
-      throw error; // unreachable but satisfies type checker
-    }
-  });
+  return queryWithCache<StellarTransactionDetails>(
+    cacheKey,
+    async (): Promise<StellarTransactionDetails> => {
+      try {
+        const response: AxiosResponse<StellarTransactionDetails> = await axios.post(
+          `${API_BASE_URL}/blockchain/records/store`,
+          {
+            recordId: normalizedRecordId,
+            hash: normalizedHash,
+            metadata: metadata || {},
+          },
+        );
+        return response.data;
+      } catch (error) {
+        handleBlockchainError(error);
+        throw error; // unreachable but satisfies type checker
+      }
+    },
+  );
 };
 
 /**
  * Retrieve record hash from Stellar blockchain.
  */
 export const retrieveRecordHash = async (
-  recordId: string
+  recordId: string,
 ): Promise<{ hash: string; txHash: string; timestamp: string; ledger?: number }> => {
   const normalizedRecordId = recordId.trim();
 
@@ -434,16 +456,25 @@ export const retrieveRecordHash = async (
 
   const cacheKey = `retrieve:${normalizedRecordId}`;
 
-  return queryWithCache<{ hash: string; txHash: string; timestamp: string; ledger?: number }>(cacheKey, async () => {
-    try {
-      const response: AxiosResponse<{ hash: string; txHash: string; timestamp: string; ledger?: number }> = 
-        await axios.get(`${API_BASE_URL}/blockchain/records/${encodeURIComponent(normalizedRecordId)}/hash`);
-      return response.data;
-    } catch (error) {
-      handleBlockchainError(error);
-      throw error; // unreachable but satisfies type checker
-    }
-  });
+  return queryWithCache<{ hash: string; txHash: string; timestamp: string; ledger?: number }>(
+    cacheKey,
+    async () => {
+      try {
+        const response: AxiosResponse<{
+          hash: string;
+          txHash: string;
+          timestamp: string;
+          ledger?: number;
+        }> = await axios.get(
+          `${API_BASE_URL}/blockchain/records/${encodeURIComponent(normalizedRecordId)}/hash`,
+        );
+        return response.data;
+      } catch (error) {
+        handleBlockchainError(error);
+        throw error; // unreachable but satisfies type checker
+      }
+    },
+  );
 };
 
 /**
@@ -452,7 +483,7 @@ export const retrieveRecordHash = async (
 export const getTransactionHistory = async (
   recordId?: string,
   accountId?: string,
-  limit?: number
+  limit?: number,
 ): Promise<StellarTransactionDetails[]> => {
   const params = new URLSearchParamsImpl();
   if (recordId) params.append('recordId', recordId.trim());
@@ -463,8 +494,9 @@ export const getTransactionHistory = async (
 
   return queryWithCache<StellarTransactionDetails[]>(cacheKey, async () => {
     try {
-      const response: AxiosResponse<StellarTransactionDetails[]> = 
-        await axios.get(`${API_BASE_URL}/blockchain/transactions/history?${params.toString()}`);
+      const response: AxiosResponse<StellarTransactionDetails[]> = await axios.get(
+        `${API_BASE_URL}/blockchain/transactions/history?${params.toString()}`,
+      );
       return response.data;
     } catch (error) {
       handleBlockchainError(error);
@@ -512,23 +544,28 @@ export const getStellarNetworkInfo = async (): Promise<{
  * Batch verify multiple records on chain.
  */
 export const batchVerifyRecords = async (
-  records: Array<{ id: string; hash: string }>
+  records: Array<{ id: string; hash: string }>,
 ): Promise<StellarRecordVerification[]> => {
   if (!records || records.length === 0) {
-    throw new BlockchainServiceError('At least one record is required for batch verification', 'INVALID_REQUEST');
+    throw new BlockchainServiceError(
+      'At least one record is required for batch verification',
+      'INVALID_REQUEST',
+    );
   }
 
-  const normalizedRecords = records.map(record => ({
+  const normalizedRecords = records.map((record) => ({
     recordId: record.id.trim(),
-    hash: record.hash.trim().toLowerCase()
+    hash: record.hash.trim().toLowerCase(),
   }));
 
-  const cacheKey = `batch:${normalizedRecords.map(r => `${r.recordId}:${r.hash}`).join(',')}`;
+  const cacheKey = `batch:${normalizedRecords.map((r) => `${r.recordId}:${r.hash}`).join(',')}`;
 
   return queryWithCache<StellarRecordVerification[]>(cacheKey, async () => {
     try {
-      const response: AxiosResponse<StellarRecordVerification[]> = 
-        await axios.post(`${API_BASE_URL}/blockchain/records/batch-verify`, normalizedRecords);
+      const response: AxiosResponse<StellarRecordVerification[]> = await axios.post(
+        `${API_BASE_URL}/blockchain/records/batch-verify`,
+        normalizedRecords,
+      );
       return response.data;
     } catch (error) {
       handleBlockchainError(error);

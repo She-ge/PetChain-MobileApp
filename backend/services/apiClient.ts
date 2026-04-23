@@ -1,4 +1,5 @@
 import axios from 'axios';
+
 import { setupInterceptors } from '../middleware/apiInterceptors';
 
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:3000/api';
@@ -9,7 +10,7 @@ const apiClient = axios.create({
   timeout: API_TIMEOUT,
   headers: {
     'Content-Type': 'application/json',
-    'Accept': 'application/json',
+    Accept: 'application/json',
   },
 });
 

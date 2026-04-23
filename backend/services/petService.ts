@@ -126,7 +126,7 @@ export const createPet = async (petData: CreatePetInput): Promise<ApiResponse<Pe
  */
 export const updatePet = async (
   petId: string,
-  petData: UpdatePetInput
+  petData: UpdatePetInput,
 ): Promise<ApiResponse<Pet>> => {
   try {
     const response = await apiClient.put<Pet>(`/pets/${petId}`, petData);

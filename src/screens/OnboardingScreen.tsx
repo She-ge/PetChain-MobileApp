@@ -29,7 +29,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, onSkip 
       title: 'Welcome to PetChain',
       subtitle: 'Your trusted companion for pet healthcare management',
       image: '🐕',
-      description: 'Securely manage your pet\'s medical records with blockchain technology',
+      description: "Securely manage your pet's medical records with blockchain technology",
     },
     {
       id: 2,
@@ -61,11 +61,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, onSkip 
       subtitle: 'Connect with trusted healthcare providers',
       image: '🏥',
       description: 'Find and connect with verified veterinarians in your area',
-      features: [
-        '✓ Licensed veterinarians',
-        '✓ Appointment scheduling',
-        '✓ Emergency contacts',
-      ],
+      features: ['✓ Licensed veterinarians', '✓ Appointment scheduling', '✓ Emergency contacts'],
     },
     {
       id: 5,
@@ -73,11 +69,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, onSkip 
       subtitle: 'Critical information when you need it most',
       image: '🚨',
       description: 'Access emergency contacts and critical medical information instantly',
-      features: [
-        '✓ Emergency contacts',
-        '✓ Critical medical info',
-        '✓ 24/7 access',
-      ],
+      features: ['✓ Emergency contacts', '✓ Critical medical info', '✓ 24/7 access'],
     },
   ];
 
@@ -97,20 +89,20 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, onSkip 
     setCurrentPage(page);
   };
 
-  const renderSlide = (slide: typeof slides[0], index: number) => {
+  const renderSlide = (slide: (typeof slides)[0], index: number) => {
     const isLastSlide = index === slides.length - 1;
-    
+
     return (
       <View key={slide.id} style={[styles.slide, { width }]}>
         <View style={styles.imageContainer}>
           <Text style={styles.emojiImage}>{slide.image}</Text>
         </View>
-        
+
         <View style={styles.contentContainer}>
           <Text style={styles.title}>{slide.title}</Text>
           <Text style={styles.subtitle}>{slide.subtitle}</Text>
           <Text style={styles.description}>{slide.description}</Text>
-          
+
           {slide.features && (
             <View style={styles.featuresContainer}>
               {slide.features.map((feature, featureIndex) => (
@@ -124,25 +116,16 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, onSkip 
 
         <View style={styles.buttonContainer}>
           {index > 0 && (
-            <TouchableOpacity
-              style={styles.backButton}
-              onPress={() => handlePageChange(index - 1)}
-            >
+            <TouchableOpacity style={styles.backButton} onPress={() => handlePageChange(index - 1)}>
               <Text style={styles.backButtonText}>Back</Text>
             </TouchableOpacity>
           )}
-          
+
           <TouchableOpacity
-            style={[
-              styles.nextButton,
-              isLastSlide && styles.getStartedButton,
-            ]}
+            style={[styles.nextButton, isLastSlide && styles.getStartedButton]}
             onPress={handleNext}
           >
-            <Text style={[
-              styles.nextButtonText,
-              isLastSlide && styles.getStartedButtonText,
-            ]}>
+            <Text style={[styles.nextButtonText, isLastSlide && styles.getStartedButtonText]}>
               {isLastSlide ? 'Get Started' : 'Next'}
             </Text>
           </TouchableOpacity>
@@ -157,10 +140,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, onSkip 
         {slides.map((_, index) => (
           <TouchableOpacity
             key={index}
-            style={[
-              styles.paginationDot,
-              index === currentPage && styles.paginationDotActive,
-            ]}
+            style={[styles.paginationDot, index === currentPage && styles.paginationDotActive]}
             onPress={() => handlePageChange(index)}
           />
         ))}
@@ -171,7 +151,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, onSkip 
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
-      
+
       <View style={styles.header}>
         <TouchableOpacity onPress={handleSkip}>
           <Text style={styles.skipText}>Skip</Text>
@@ -182,10 +162,8 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, onSkip 
         horizontal
         pagingEnabled
         showsHorizontalScrollIndicator={false}
-        onMomentumScrollEnd={(event: NativeSyntheticEvent<NativeScrollEvent>) => {
-          const slideIndex = Math.round(
-            event.nativeEvent.contentOffset.x / width
-          );
+        onMomentumScrollEnd={(event) => {
+          const slideIndex = Math.round(event.nativeEvent.contentOffset.x / width);
           setCurrentPage(slideIndex);
         }}
         style={styles.scrollView}

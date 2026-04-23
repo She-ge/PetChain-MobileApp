@@ -23,7 +23,7 @@ class CacheManager {
     const item: CacheItem<T> = {
       data,
       timestamp: Date.now(),
-      ttl: ttl || this.defaultTTL
+      ttl: ttl || this.defaultTTL,
     };
 
     this.cache.set(key, item);
@@ -32,14 +32,14 @@ class CacheManager {
 
   async getCachedData<T>(key: string): Promise<T | null> {
     const item = this.cache.get(key);
-    
+
     if (!item) return null;
-    
+
     if (this.isExpired(item)) {
       this.cache.delete(key);
       return null;
     }
-    
+
     return item.data as T;
   }
 
@@ -56,14 +56,14 @@ class CacheManager {
       }
     }
 
-    expiredKeys.forEach(key => this.cache.delete(key));
+    expiredKeys.forEach((key) => this.cache.delete(key));
   }
 
   async getCacheSize(): Promise<CacheStats> {
     const size = this.calculateCacheSize();
     return {
       size,
-      itemCount: this.cache.size
+      itemCount: this.cache.size,
     };
   }
 
@@ -73,15 +73,15 @@ class CacheManager {
 
   async resolveConflict<T>(key: string, localData: T, remoteData: T): Promise<T> {
     const localItem = this.cache.get(key);
-    
+
     if (!localItem) return remoteData;
-    
+
     // Use timestamp-based resolution (latest wins)
     const remoteTimestamp = Date.now();
     const localTimestamp = localItem.timestamp;
-    
+
     const resolvedData = remoteTimestamp > localTimestamp ? remoteData : localData;
-    
+
     await this.cacheData(key, resolvedData);
     return resolvedData;
   }
@@ -100,7 +100,7 @@ class CacheManager {
 
   private async manageCacheSize(): Promise<void> {
     await this.clearExpiredCache();
-    
+
     if (this.calculateCacheSize() > this.maxSize) {
       await this.evictOldestItems();
     }
@@ -109,7 +109,7 @@ class CacheManager {
   private async evictOldestItems(): Promise<void> {
     const entries = Array.from(this.cache.entries());
     entries.sort((a, b) => a[1].timestamp - b[1].timestamp);
-    
+
     while (this.calculateCacheSize() > this.maxSize * 0.8 && entries.length > 0) {
       const [key] = entries.shift()!;
       this.cache.delete(key);

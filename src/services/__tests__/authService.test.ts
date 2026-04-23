@@ -31,12 +31,10 @@ const keychainStore: Record<string, string> = {};
 
 jest.mock('react-native-keychain', () => ({
   ACCESSIBLE: { WHEN_UNLOCKED_THIS_DEVICE_ONLY: 'WHEN_UNLOCKED_THIS_DEVICE_ONLY' },
-  setGenericPassword: jest.fn(
-    (_user: string, value: string, opts: { service: string }) => {
-      keychainStore[opts.service] = value;
-      return Promise.resolve(true);
-    },
-  ),
+  setGenericPassword: jest.fn((_user: string, value: string, opts: { service: string }) => {
+    keychainStore[opts.service] = value;
+    return Promise.resolve(true);
+  }),
   getGenericPassword: jest.fn((opts: { service: string }) => {
     const val = keychainStore[opts.service];
     return Promise.resolve(val ? { username: 'petchain_user', password: val } : false);
@@ -92,8 +90,8 @@ function makeJwt(exp: number): string {
 }
 
 const NOW = Math.floor(Date.now() / 1000);
-const FUTURE_TOKEN = makeJwt(NOW + 3600);   // valid for 1h
-const EXPIRED_TOKEN = makeJwt(NOW - 3600);  // expired 1h ago
+const FUTURE_TOKEN = makeJwt(NOW + 3600); // valid for 1h
+const EXPIRED_TOKEN = makeJwt(NOW - 3600); // expired 1h ago
 
 const MOCK_LOGIN_RESPONSE = {
   user: { id: 'u1', email: 'user@example.com', name: 'Test User', role: 'owner' },
@@ -129,27 +127,41 @@ describe('login()', () => {
   });
 
   it('throws MISSING_CREDENTIALS when password is empty', async () => {
-    await expect(login('user@example.com', '')).rejects.toMatchObject({ code: 'MISSING_CREDENTIALS' });
+    await expect(login('user@example.com', '')).rejects.toMatchObject({
+      code: 'MISSING_CREDENTIALS',
+    });
   });
 
   it('throws INVALID_CREDENTIALS on 401', async () => {
-    const err = Object.assign(new Error('401'), { isAxiosError: true, response: { status: 401, data: {} } });
+    const err = Object.assign(new Error('401'), {
+      isAxiosError: true,
+      response: { status: 401, data: {} },
+    });
     mockPost.mockRejectedValueOnce(err);
 
-    await expect(login('user@example.com', 'wrong')).rejects.toMatchObject({ code: 'INVALID_CREDENTIALS' });
+    await expect(login('user@example.com', 'wrong')).rejects.toMatchObject({
+      code: 'INVALID_CREDENTIALS',
+    });
   });
 
   it('throws RATE_LIMITED on 429', async () => {
-    const err = Object.assign(new Error('429'), { isAxiosError: true, response: { status: 429, data: {} } });
+    const err = Object.assign(new Error('429'), {
+      isAxiosError: true,
+      response: { status: 429, data: {} },
+    });
     mockPost.mockRejectedValueOnce(err);
 
-    await expect(login('user@example.com', 'Password1')).rejects.toMatchObject({ code: 'RATE_LIMITED' });
+    await expect(login('user@example.com', 'Password1')).rejects.toMatchObject({
+      code: 'RATE_LIMITED',
+    });
   });
 
   it('throws NETWORK_ERROR on non-axios error', async () => {
     mockPost.mockRejectedValueOnce(new Error('Network failure'));
 
-    await expect(login('user@example.com', 'Password1')).rejects.toMatchObject({ code: 'NETWORK_ERROR' });
+    await expect(login('user@example.com', 'Password1')).rejects.toMatchObject({
+      code: 'NETWORK_ERROR',
+    });
   });
 
   it('works without a refreshToken in the response', async () => {
@@ -266,7 +278,10 @@ describe('refreshToken()', () => {
     keychainStore['com.petchain.auth'] = FUTURE_TOKEN;
     keychainStore['com.petchain.auth.refresh'] = 'refresh-abc';
 
-    const err = Object.assign(new Error('401'), { isAxiosError: true, response: { status: 401, data: {} } });
+    const err = Object.assign(new Error('401'), {
+      isAxiosError: true,
+      response: { status: 401, data: {} },
+    });
     mockPost.mockRejectedValueOnce(err);
 
     await expect(refreshToken()).rejects.toMatchObject({ code: 'REFRESH_TOKEN_EXPIRED' });

@@ -1,4 +1,4 @@
-import axios, { AxiosResponse } from 'axios';
+import axios, { type AxiosResponse } from 'axios';
 
 // Types
 export interface MedicalRecord {
@@ -44,7 +44,10 @@ export interface PaginatedResponse<T> {
 
 // Custom error class
 export class MedicalRecordError extends Error {
-  constructor(message: string, public readonly code: string) {
+  constructor(
+    message: string,
+    public readonly code: string,
+  ) {
     super(message);
     this.name = 'MedicalRecordError';
   }
@@ -57,7 +60,7 @@ const handleApiError = (error: any): never => {
   if (axios.isAxiosError(error)) {
     const status = error.response?.status;
     const message = error.response?.data?.message || error.message;
-    
+
     switch (status) {
       case 404:
         throw new MedicalRecordError('Pet or records not found', 'NOT_FOUND');
@@ -77,7 +80,7 @@ const handleApiError = (error: any): never => {
 // Fetch medical records with optional filtering
 export const getMedicalRecords = async (
   petId: string,
-  filters?: RecordFilters
+  filters?: RecordFilters,
 ): Promise<PaginatedResponse<MedicalRecord>> => {
   if (!petId) {
     throw new MedicalRecordError('Pet ID is required', 'INVALID_PET_ID');
@@ -92,7 +95,7 @@ export const getMedicalRecords = async (
     if (filters?.limit) params.append('limit', filters.limit.toString());
 
     const response: AxiosResponse<PaginatedResponse<MedicalRecord>> = await axios.get(
-      `${API_BASE_URL}/pets/${petId}/medical-records?${params.toString()}`
+      `${API_BASE_URL}/pets/${petId}/medical-records?${params.toString()}`,
     );
 
     return response.data;

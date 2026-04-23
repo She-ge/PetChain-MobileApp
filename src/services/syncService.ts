@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+
 import apiClient from './apiClient';
 import { networkMonitor } from '../utils/networkMonitor';
 
@@ -56,13 +57,17 @@ class SyncService {
 
   // ── Queue management ─────────────────────────────────────────────────────────
 
-  async enqueue(type: SyncEntityType, action: SyncAction, data: Record<string, unknown>): Promise<void> {
+  async enqueue(
+    type: SyncEntityType,
+    action: SyncAction,
+    data: Record<string, unknown>,
+  ): Promise<void> {
     const queue = await this.getQueue();
 
     // Deduplicate: if same entity + action already queued, replace it
     const entityId = data.id as string | undefined;
     const existingIdx = entityId
-      ? queue.findIndex(i => i.data.id === entityId && i.type === type && i.action === action)
+      ? queue.findIndex((i) => i.data.id === entityId && i.type === type && i.action === action)
       : -1;
 
     const item: SyncItem = {
@@ -139,7 +144,7 @@ class SyncService {
       isSyncing: false,
       lastSync: Date.now(),
       pendingCount: failed.length,
-      failedCount: failed.filter(i => i.retries >= MAX_RETRIES).length,
+      failedCount: failed.filter((i) => i.retries >= MAX_RETRIES).length,
     });
   }
 
@@ -158,7 +163,7 @@ class SyncService {
     type: SyncEntityType,
     localData: Record<string, unknown>,
     serverData: Record<string, unknown>,
-    strategy: ConflictResolutionStrategy = 'last-write-wins'
+    strategy: ConflictResolutionStrategy = 'last-write-wins',
   ): Promise<Record<string, unknown>> {
     const localTs = (localData.updatedAt as number) || (localData.timestamp as number) || 0;
     const serverTs = (serverData.updatedAt as number) || (serverData.timestamp as number) || 0;
@@ -187,7 +192,7 @@ class SyncService {
 
   async resolveManualConflict(entityId: string, resolution: 'local' | 'server'): Promise<void> {
     const conflicts = await this.getConflicts();
-    const conflict = conflicts.find(c => c.entityId === entityId);
+    const conflict = conflicts.find((c) => c.entityId === entityId);
     if (!conflict) return;
 
     const resolved = resolution === 'local' ? conflict.localData : conflict.serverData;
@@ -214,7 +219,7 @@ class SyncService {
   onStatusChange(listener: (status: SyncStatus) => void): () => void {
     this.statusListeners.push(listener);
     return () => {
-      this.statusListeners = this.statusListeners.filter(l => l !== listener);
+      this.statusListeners = this.statusListeners.filter((l) => l !== listener);
     };
   }
 
@@ -249,12 +254,12 @@ class SyncService {
     const current = await this.getStatus();
     const next = { ...current, ...updates };
     await AsyncStorage.setItem(SYNC_STATUS_KEY, JSON.stringify(next));
-    this.statusListeners.forEach(l => l(next));
+    this.statusListeners.forEach((l) => l(next));
   }
 
   private async addConflict(conflict: ConflictRecord): Promise<void> {
     const conflicts = await this.getConflicts();
-    const idx = conflicts.findIndex(c => c.entityId === conflict.entityId);
+    const idx = conflicts.findIndex((c) => c.entityId === conflict.entityId);
     if (idx >= 0) conflicts[idx] = conflict;
     else conflicts.push(conflict);
     await AsyncStorage.setItem(CONFLICTS_KEY, JSON.stringify(conflicts));
@@ -264,7 +269,7 @@ class SyncService {
     const conflicts = await this.getConflicts();
     await AsyncStorage.setItem(
       CONFLICTS_KEY,
-      JSON.stringify(conflicts.filter(c => c.entityId !== entityId))
+      JSON.stringify(conflicts.filter((c) => c.entityId !== entityId)),
     );
   }
 }

@@ -17,8 +17,7 @@ const DEEP_LINK_SCHEME = 'petchain://pet';
 const QR_PREFIX = 'PETCHAIN_QR';
 const PET_ID_REGEX = /^[a-zA-Z0-9_-]{1,64}$/;
 
-const buildDeepLink = (petId: string): string =>
-  `${DEEP_LINK_SCHEME}/${encodeURIComponent(petId)}`;
+const buildDeepLink = (petId: string): string => `${DEEP_LINK_SCHEME}/${encodeURIComponent(petId)}`;
 
 const computeChecksum = (petId: string, deepLink: string, generatedAt: number): string =>
   CryptoJS.SHA256(`${QR_PREFIX}|${petId}|${deepLink}|${generatedAt}`).toString();
@@ -29,7 +28,9 @@ export const generatePetQRCode = (petId: string): string => {
       throw new Error('petId must not be empty');
     }
     if (PET_ID_REGEX.test(petId) === false) {
-      throw new Error('petId contains invalid characters. Allowed: letters, digits, hyphens, underscores (max 64 chars)');
+      throw new Error(
+        'petId contains invalid characters. Allowed: letters, digits, hyphens, underscores (max 64 chars)',
+      );
     }
     const generatedAt = Date.now();
     const deepLink = buildDeepLink(petId);
@@ -37,7 +38,9 @@ export const generatePetQRCode = (petId: string): string => {
     const payload: PetQRData = { petId, deepLink, generatedAt, checksum };
     return CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(JSON.stringify(payload)));
   } catch (error) {
-    throw new Error(`QR generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    throw new Error(
+      `QR generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+    );
   }
 };
 
@@ -62,13 +65,15 @@ export const parseQRCodeData = (qrData: string): PetQRData => {
     const obj = parsed as Record<string, unknown>;
     const requiredFields: (keyof PetQRData)[] = ['petId', 'deepLink', 'generatedAt', 'checksum'];
     for (const field of requiredFields) {
-      if ((field in obj) === false) {
+      if (field in obj === false) {
         throw new Error(`QR data is missing required field: "${field}"`);
       }
     }
     return obj as unknown as PetQRData;
   } catch (error) {
-    throw new Error(`QR parsing failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    throw new Error(
+      `QR parsing failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+    );
   }
 };
 
@@ -80,7 +85,10 @@ export const validateQRCode = (qrData: string): QRValidationResult => {
   try {
     data = parseQRCodeData(qrData);
   } catch (error) {
-    return { valid: false, error: error instanceof Error ? error.message : 'Failed to parse QR data' };
+    return {
+      valid: false,
+      error: error instanceof Error ? error.message : 'Failed to parse QR data',
+    };
   }
   if (PET_ID_REGEX.test(data.petId) === false) {
     return { valid: false, error: 'QR code contains an invalid pet ID format' };

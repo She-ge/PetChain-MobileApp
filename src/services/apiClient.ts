@@ -1,4 +1,5 @@
 import axios, { type AxiosInstance } from 'axios';
+
 import config from '../config';
 import { getToken } from './authService';
 

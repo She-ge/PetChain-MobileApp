@@ -142,14 +142,14 @@ describe('petService', () => {
 
     mockPost.mockRejectedValueOnce(badRequestError);
 
-    await expect(
-      createPet({ name: '', species: 'dog', ownerId: 'owner-1' }),
-    ).rejects.toMatchObject({
-      name: 'PetServiceError',
-      code: 'INVALID_INPUT',
-      message: 'Name is required',
-      status: 400,
-    });
+    await expect(createPet({ name: '', species: 'dog', ownerId: 'owner-1' })).rejects.toMatchObject(
+      {
+        name: 'PetServiceError',
+        code: 'INVALID_INPUT',
+        message: 'Name is required',
+        status: 400,
+      },
+    );
   });
 
   it('validates required petId arguments', async () => {

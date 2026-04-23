@@ -95,9 +95,12 @@ class EmergencyService {
     return newContact;
   }
 
-  async updateContact(id: string, updates: Partial<Omit<EmergencyContact, 'id'>>): Promise<EmergencyContact> {
+  async updateContact(
+    id: string,
+    updates: Partial<Omit<EmergencyContact, 'id'>>,
+  ): Promise<EmergencyContact> {
     const contacts = await this.getEmergencyContacts();
-    const idx = contacts.findIndex(c => c.id === id);
+    const idx = contacts.findIndex((c) => c.id === id);
     if (idx === -1) throw new Error('Contact not found');
     contacts[idx] = { ...contacts[idx], ...updates };
     await AsyncStorage.setItem(CONTACTS_KEY, JSON.stringify(contacts));
@@ -106,7 +109,7 @@ class EmergencyService {
 
   async deleteContact(id: string): Promise<void> {
     const contacts = await this.getEmergencyContacts();
-    const filtered = contacts.filter(c => c.id !== id);
+    const filtered = contacts.filter((c) => c.id !== id);
     await AsyncStorage.setItem(CONTACTS_KEY, JSON.stringify(filtered));
     // Also remove from favorites if present
     await this.removeFavoriteContact(id);
@@ -121,7 +124,7 @@ class EmergencyService {
 
   async saveFavoriteContact(contact: EmergencyContact): Promise<void> {
     const favorites = await this.getFavoriteContacts();
-    if (!favorites.find(f => f.id === contact.id)) {
+    if (!favorites.find((f) => f.id === contact.id)) {
       favorites.push(contact);
       await AsyncStorage.setItem(FAVORITES_KEY, JSON.stringify(favorites));
     }
@@ -131,7 +134,7 @@ class EmergencyService {
     const favorites = await this.getFavoriteContacts();
     await AsyncStorage.setItem(
       FAVORITES_KEY,
-      JSON.stringify(favorites.filter(f => f.id !== contactId))
+      JSON.stringify(favorites.filter((f) => f.id !== contactId)),
     );
   }
 
@@ -146,7 +149,7 @@ class EmergencyService {
           message: 'PetChain needs your location to find nearby vet clinics.',
           buttonPositive: 'Allow',
           buttonNegative: 'Deny',
-        }
+        },
       );
       return granted === PermissionsAndroid.RESULTS.GRANTED;
     }
@@ -159,19 +162,24 @@ class EmergencyService {
 
     return new Promise((resolve, reject) => {
       Geolocation.getCurrentPosition(
-        position => resolve({
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-        }),
+        (position) =>
+          resolve({
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+          }),
         () => reject(new Error('Failed to get location')),
-        { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 },
       );
     });
   }
 
   // ── Nearby clinics ───────────────────────────────────────────────────────────
 
-  async getNearbyVetClinics(latitude: number, longitude: number, radiusKm = 10): Promise<VetClinic[]> {
+  async getNearbyVetClinics(
+    latitude: number,
+    longitude: number,
+    radiusKm = 10,
+  ): Promise<VetClinic[]> {
     // Mock data — replace with a real Places API call (e.g. Google Places)
     const mockClinics: VetClinic[] = [
       {
@@ -207,11 +215,11 @@ class EmergencyService {
     ];
 
     return mockClinics
-      .map(clinic => ({
+      .map((clinic) => ({
         ...clinic,
         distance: this.calculateDistance(latitude, longitude, clinic.latitude, clinic.longitude),
       }))
-      .filter(clinic => clinic.distance! <= radiusKm)
+      .filter((clinic) => clinic.distance! <= radiusKm)
       .sort((a, b) => a.distance! - b.distance!);
   }
 
@@ -231,7 +239,7 @@ class EmergencyService {
 
     // Auto-call first 24h emergency contact
     const contacts = await this.getEmergencyContacts();
-    const emergencyContact = contacts.find(c => c.available24h);
+    const emergencyContact = contacts.find((c) => c.available24h);
     if (emergencyContact) {
       this.callContact(emergencyContact.phoneNumber);
     }
@@ -243,7 +251,7 @@ class EmergencyService {
 
   callContact(phoneNumber: string): void {
     const url = `tel:${phoneNumber}`;
-    Linking.canOpenURL(url).then(supported => {
+    Linking.canOpenURL(url).then((supported) => {
       if (supported) Linking.openURL(url);
     });
   }
@@ -256,9 +264,9 @@ class EmergencyService {
     });
 
     if (url) {
-      Linking.canOpenURL(url).then(supported => {
+      Linking.canOpenURL(url).then((supported) => {
         Linking.openURL(
-          supported ? url : `https://www.google.com/maps/search/?api=1&query=${encoded}`
+          supported ? url : `https://www.google.com/maps/search/?api=1&query=${encoded}`,
         );
       });
     }

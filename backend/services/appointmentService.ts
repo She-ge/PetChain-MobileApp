@@ -1,15 +1,15 @@
-import apiClient from "./apiClient";
-import { errorHandler } from "../middleware/errorHandler";
+import apiClient from './apiClient';
+import { errorHandler } from '../middleware/errorHandler';
 import {
-  Appointment,
+  type Appointment,
   AppointmentStatus,
-  CreateAppointmentInput,
-  UpdateAppointmentInput,
-  AppointmentResponse,
-  AppointmentListResponse,
-} from "../models/Appointment";
+  type CreateAppointmentInput,
+  type UpdateAppointmentInput,
+  type AppointmentResponse,
+  type AppointmentListResponse,
+} from '../models/Appointment';
 
-const APPOINTMENTS_ENDPOINT = "/appointments";
+const APPOINTMENTS_ENDPOINT = '/appointments';
 
 /**
  * Fetch all appointments, optionally filtered by petId.
@@ -32,9 +32,7 @@ export async function getAppointments(petId?: string): Promise<AppointmentListRe
  */
 export async function getAppointment(id: string): Promise<AppointmentResponse> {
   try {
-    const response = await apiClient.get<AppointmentResponse>(
-      `${APPOINTMENTS_ENDPOINT}/${id}`
-    );
+    const response = await apiClient.get<AppointmentResponse>(`${APPOINTMENTS_ENDPOINT}/${id}`);
     return response.data;
   } catch (error) {
     const handled = errorHandler(error);
@@ -46,13 +44,10 @@ export async function getAppointment(id: string): Promise<AppointmentResponse> {
  * Create a new appointment.
  */
 export async function createAppointment(
-  input: CreateAppointmentInput
+  input: CreateAppointmentInput,
 ): Promise<AppointmentResponse> {
   try {
-    const response = await apiClient.post<AppointmentResponse>(
-      APPOINTMENTS_ENDPOINT,
-      input
-    );
+    const response = await apiClient.post<AppointmentResponse>(APPOINTMENTS_ENDPOINT, input);
     return response.data;
   } catch (error) {
     const handled = errorHandler(error);
@@ -65,12 +60,12 @@ export async function createAppointment(
  */
 export async function updateAppointment(
   id: string,
-  input: UpdateAppointmentInput
+  input: UpdateAppointmentInput,
 ): Promise<AppointmentResponse> {
   try {
     const response = await apiClient.put<AppointmentResponse>(
       `${APPOINTMENTS_ENDPOINT}/${id}`,
-      input
+      input,
     );
     return response.data;
   } catch (error) {
@@ -90,16 +85,15 @@ export async function cancelAppointment(id: string): Promise<AppointmentResponse
  * Fetch upcoming appointments (scheduled, not cancelled, dateTime >= now).
  * Optionally filter by petId.
  */
-export async function getUpcomingAppointments(
-  petId?: string
-): Promise<AppointmentListResponse> {
+export async function getUpcomingAppointments(petId?: string): Promise<AppointmentListResponse> {
   try {
     const { data: appointments } = await getAppointments(petId);
     const list = Array.isArray(appointments) ? appointments : [];
 
     const now = new Date();
     const upcoming = list.filter((apt: Appointment) => {
-      if (apt.status === AppointmentStatus.CANCELLED || apt.status === AppointmentStatus.COMPLETED) return false;
+      if (apt.status === AppointmentStatus.CANCELLED || apt.status === AppointmentStatus.COMPLETED)
+        return false;
       const appointmentDateTime = new Date(`${apt.date}T${apt.time}`);
       return appointmentDateTime >= now;
     });
@@ -108,7 +102,7 @@ export async function getUpcomingAppointments(
       success: true,
       data: upcoming.sort(
         (a, b) =>
-          new Date(`${a.date}T${a.time}`).getTime() - new Date(`${b.date}T${b.time}`).getTime()
+          new Date(`${a.date}T${a.time}`).getTime() - new Date(`${b.date}T${b.time}`).getTime(),
       ),
       total: upcoming.length,
     };

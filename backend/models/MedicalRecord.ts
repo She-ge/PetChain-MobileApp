@@ -1,6 +1,6 @@
 /**
  * Medical Record domain model for the backend.
- * 
+ *
  * This model represents the complete medical record structure used by the backend API
  * and matches the frontend models while maintaining API compatibility.
  */
@@ -75,7 +75,7 @@ export interface MedicalRecord {
   nextVisitDate?: string;
   createdAt: string;
   updatedAt: string;
-  
+
   // Extended fields for rich medical record data
   diagnosisDetails?: Diagnosis;
   treatmentDetails?: Treatment;
@@ -83,7 +83,7 @@ export interface MedicalRecord {
   vaccinations?: VaccinationRecord[];
   documents?: MedicalDocumentMetadata[];
   veterinarian?: Veterinarian;
-  
+
   // Blockchain fields
   hash?: string;
   recordHash?: string;
@@ -102,7 +102,7 @@ export interface CreateMedicalRecordData {
   notes?: string;
   visitDate: string;
   nextVisitDate?: string;
-  
+
   // Optional rich data
   diagnosisDetails?: Diagnosis;
   treatmentDetails?: Treatment;
@@ -118,7 +118,7 @@ export interface UpdateMedicalRecordData {
   notes?: string;
   visitDate?: string;
   nextVisitDate?: string;
-  
+
   // Optional rich data
   diagnosisDetails?: Diagnosis;
   treatmentDetails?: Treatment;

@@ -6,7 +6,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
  */
 
 export class StorageError extends Error {
-  constructor(message: string, public readonly operation: string) {
+  constructor(
+    message: string,
+    public readonly operation: string,
+  ) {
     super(message);
     this.name = 'StorageError';
   }
@@ -27,7 +30,7 @@ export async function get<T>(key: string): Promise<T | null> {
   } catch (error) {
     throw new StorageError(
       `Failed to get item with key "${key}": ${error instanceof Error ? error.message : 'Unknown error'}`,
-      'get'
+      'get',
     );
   }
 }
@@ -44,7 +47,7 @@ export async function set<T>(key: string, value: T): Promise<void> {
   } catch (error) {
     throw new StorageError(
       `Failed to set item with key "${key}": ${error instanceof Error ? error.message : 'Unknown error'}`,
-      'set'
+      'set',
     );
   }
 }
@@ -59,7 +62,7 @@ export async function remove(key: string): Promise<void> {
   } catch (error) {
     throw new StorageError(
       `Failed to remove item with key "${key}": ${error instanceof Error ? error.message : 'Unknown error'}`,
-      'remove'
+      'remove',
     );
   }
 }
@@ -73,7 +76,7 @@ export async function clear(): Promise<void> {
   } catch (error) {
     throw new StorageError(
       `Failed to clear storage: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      'clear'
+      'clear',
     );
   }
 }
@@ -87,16 +90,16 @@ export async function getMultiple<T>(keys: string[]): Promise<Record<string, T |
   try {
     const pairs = await AsyncStorage.multiGet(keys);
     const result: Record<string, T | null> = {};
-    
+
     for (const [key, value] of pairs) {
-      result[key] = value ? JSON.parse(value) as T : null;
+      result[key] = value ? (JSON.parse(value) as T) : null;
     }
-    
+
     return result;
   } catch (error) {
     throw new StorageError(
       `Failed to get multiple items: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      'getMultiple'
+      'getMultiple',
     );
   }
 }
@@ -109,13 +112,13 @@ export async function setMultiple<T>(items: Array<[string, T]>): Promise<void> {
   try {
     const serializedItems: Array<[string, string]> = items.map(([key, value]) => [
       key,
-      JSON.stringify(value)
+      JSON.stringify(value),
     ]);
     await AsyncStorage.multiSet(serializedItems);
   } catch (error) {
     throw new StorageError(
       `Failed to set multiple items: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      'setMultiple'
+      'setMultiple',
     );
   }
 }
@@ -130,7 +133,7 @@ export async function removeMultiple(keys: string[]): Promise<void> {
   } catch (error) {
     throw new StorageError(
       `Failed to remove multiple items: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      'removeMultiple'
+      'removeMultiple',
     );
   }
 }
@@ -145,7 +148,7 @@ export async function getAllKeys(): Promise<string[]> {
   } catch (error) {
     throw new StorageError(
       `Failed to get all keys: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      'getAllKeys'
+      'getAllKeys',
     );
   }
 }
@@ -159,5 +162,5 @@ export default {
   setMultiple,
   removeMultiple,
   getAllKeys,
-  StorageError
+  StorageError,
 };

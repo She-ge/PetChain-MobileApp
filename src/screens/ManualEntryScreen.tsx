@@ -18,10 +18,7 @@ interface ManualEntryScreenProps {
   onClose: () => void;
 }
 
-const ManualEntryScreen: React.FC<ManualEntryScreenProps> = ({
-  onSubmit,
-  onClose,
-}) => {
+const ManualEntryScreen: React.FC<ManualEntryScreenProps> = ({ onSubmit, onClose }) => {
   const [recordId, setRecordId] = useState('');
   const [petId, setPetId] = useState('');
   const [vetId, setVetId] = useState('');
@@ -29,20 +26,23 @@ const ManualEntryScreen: React.FC<ManualEntryScreenProps> = ({
 
   const handleSubmit = async () => {
     if (!recordId.trim() && !petId.trim() && !vetId.trim()) {
-      Alert.alert('Missing Information', 'Please enter at least one identifier to search for records.');
+      Alert.alert(
+        'Missing Information',
+        'Please enter at least one identifier to search for records.',
+      );
       return;
     }
 
     setLoading(true);
-    
+
     try {
       // Simulate API call to search for records
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
       // Use the first available identifier
       const identifier = recordId.trim() || petId.trim() || vetId.trim();
       onSubmit(identifier);
-    } catch (error) {
+    } catch {
       Alert.alert('Error', 'Failed to search for records. Please try again.');
     } finally {
       setLoading(false);
@@ -132,9 +132,7 @@ const ManualEntryScreen: React.FC<ManualEntryScreenProps> = ({
           </View>
           <View style={styles.helpItem}>
             <Text style={styles.helpBullet}>•</Text>
-            <Text style={styles.helpText}>
-              Vet ID: Veterinarian's license number or clinic ID
-            </Text>
+            <Text style={styles.helpText}>Vet ID: Veterinarian's license number or clinic ID</Text>
           </View>
         </View>
       </ScrollView>
@@ -151,15 +149,13 @@ const ManualEntryScreen: React.FC<ManualEntryScreenProps> = ({
         >
           <Text style={styles.clearButtonText}>Clear</Text>
         </TouchableOpacity>
-        
+
         <TouchableOpacity
           style={[styles.submitButton, styles.footerButton]}
           onPress={handleSubmit}
           disabled={loading || (!recordId.trim() && !petId.trim() && !vetId.trim())}
         >
-          <Text style={styles.submitButtonText}>
-            {loading ? 'Searching...' : 'Search Records'}
-          </Text>
+          <Text style={styles.submitButtonText}>{loading ? 'Searching...' : 'Search Records'}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -168,15 +164,15 @@ const ManualEntryScreen: React.FC<ManualEntryScreenProps> = ({
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
-      
+
       <KeyboardAvoidingView
         style={styles.keyboardContainer}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         {renderHeader()}
-        
+
         {renderForm()}
-        
+
         {renderFooter()}
       </KeyboardAvoidingView>
     </SafeAreaView>

@@ -23,7 +23,10 @@ export const createMedication = async (medication: Omit<Medication, 'id'>): Prom
   return data;
 };
 
-export const updateMedication = async (id: string, medication: Partial<Medication>): Promise<Medication> => {
+export const updateMedication = async (
+  id: string,
+  medication: Partial<Medication>,
+): Promise<Medication> => {
   const { data } = await axios.put(`${API_URL}/medications/${id}`, medication);
   return data;
 };
@@ -34,5 +37,5 @@ export const deleteMedication = async (id: string): Promise<void> => {
 
 export const getActiveMedications = async (petId: string): Promise<Medication[]> => {
   const medications = await getMedications(petId);
-  return medications.filter(med => med.active);
+  return medications.filter((med) => med.active);
 };
