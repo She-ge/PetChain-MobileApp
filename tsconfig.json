@@ -4,13 +4,33 @@
     "module": "commonjs",
     "lib": ["ES2020"],
     "jsx": "react-native",
+
+    // ── Strict type-checking ──────────────────────────────────────────────────
     "strict": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "strictFunctionTypes": true,
+    "strictBindCallApply": true,
+    "strictPropertyInitialization": true,
+    "noImplicitThis": true,
+    "alwaysStrict": true,
+
+    // ── Additional safety checks ──────────────────────────────────────────────
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "useUnknownInCatchVariables": true,
+
+    // ── Module resolution ─────────────────────────────────────────────────────
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "moduleResolution": "node",
     "resolveJsonModule": true,
     "isolatedModules": true,
+
+    // ── Output ────────────────────────────────────────────────────────────────
     "outDir": "./dist",
     "rootDir": "./"
   },

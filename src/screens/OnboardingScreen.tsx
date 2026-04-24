@@ -9,6 +9,8 @@ import {
   StatusBar,
   Dimensions,
   Platform,
+  type NativeSyntheticEvent,
+  type NativeScrollEvent,
 } from 'react-native';
 
 const { width } = Dimensions.get('window');
