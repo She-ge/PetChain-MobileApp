@@ -28,20 +28,50 @@ jest.mock('axios', () => {
 
 // Keychain in-memory store shared between mock and tests
 const keychainStore: Record<string, string> = {};
+const secureStore: Record<string, string> = {};
+let supportedBiometryType: string | null = null;
+let biometricAuthShouldFail = false;
 
 jest.mock('react-native-keychain', () => ({
   ACCESSIBLE: { WHEN_UNLOCKED_THIS_DEVICE_ONLY: 'WHEN_UNLOCKED_THIS_DEVICE_ONLY' },
-  setGenericPassword: jest.fn((_user: string, value: string, opts: { service: string }) => {
-    keychainStore[opts.service] = value;
+  ACCESS_CONTROL: {
+    BIOMETRY_CURRENT_SET_OR_DEVICE_PASSCODE: 'BIOMETRY_CURRENT_SET_OR_DEVICE_PASSCODE',
+  },
+  AUTHENTICATION_TYPE: {
+    DEVICE_PASSCODE_OR_BIOMETRICS: 'DEVICE_PASSCODE_OR_BIOMETRICS',
+  },
+  SECURITY_LEVEL: {
+    SECURE_HARDWARE: 'SECURE_HARDWARE',
+    ANY: 'ANY',
+  },
+  setGenericPassword: jest.fn((_user: string, value: string, opts?: { service?: string }) => {
+    keychainStore[opts?.service ?? '__default__'] = value;
     return Promise.resolve(true);
   }),
-  getGenericPassword: jest.fn((opts: { service: string }) => {
-    const val = keychainStore[opts.service];
+  getGenericPassword: jest.fn((opts?: { service?: string }) => {
+    if (opts?.service === 'com.petchain.auth.biometric' && biometricAuthShouldFail) {
+      return Promise.resolve(false);
+    }
+    const val = keychainStore[opts?.service ?? '__default__'];
     return Promise.resolve(val ? { username: 'petchain_user', password: val } : false);
   }),
-  resetGenericPassword: jest.fn((opts: { service: string }) => {
-    delete keychainStore[opts.service];
+  resetGenericPassword: jest.fn((opts?: { service?: string }) => {
+    delete keychainStore[opts?.service ?? '__default__'];
     return Promise.resolve(true);
+  }),
+  getSupportedBiometryType: jest.fn(() => Promise.resolve(supportedBiometryType)),
+}));
+
+jest.mock('expo-secure-store', () => ({
+  WHEN_UNLOCKED_THIS_DEVICE_ONLY: 'WHEN_UNLOCKED_THIS_DEVICE_ONLY',
+  setItemAsync: jest.fn((key: string, value: string) => {
+    secureStore[key] = value;
+    return Promise.resolve();
+  }),
+  getItemAsync: jest.fn((key: string) => Promise.resolve(secureStore[key] ?? null)),
+  deleteItemAsync: jest.fn((key: string) => {
+    delete secureStore[key];
+    return Promise.resolve();
   }),
 }));
 
@@ -59,6 +89,9 @@ import {
   verifyEmail,
   getSession,
   isBiometricAuthenticationAvailable,
+  isBiometricAuthenticationEnabled,
+  promptForBiometricSetup,
+  authenticateWithBiometrics,
   AuthError,
 } from '../authService';
 
@@ -105,6 +138,9 @@ const MOCK_LOGIN_RESPONSE = {
 beforeEach(() => {
   jest.clearAllMocks();
   Object.keys(keychainStore).forEach((k) => delete keychainStore[k]);
+  Object.keys(secureStore).forEach((k) => delete secureStore[k]);
+  supportedBiometryType = null;
+  biometricAuthShouldFail = false;
 });
 
 // ─── login() ──────────────────────────────────────────────────────────────────
@@ -119,6 +155,8 @@ describe('login()', () => {
     expect(session.refreshToken).toBe('refresh-abc');
     expect(session.user.email).toBe('user@example.com');
     expect(await getToken()).toBe(FUTURE_TOKEN);
+    expect(secureStore['com.petchain.auth.tokens']).toBeDefined();
+    expect(secureStore['com.petchain.auth.tokens']).not.toBe(FUTURE_TOKEN);
   });
 
   it('throws MISSING_CREDENTIALS when email is empty', async () => {
@@ -198,17 +236,19 @@ describe('register()', () => {
 
 describe('logout()', () => {
   it('clears all stored tokens', async () => {
-    keychainStore['com.petchain.auth'] = FUTURE_TOKEN;
-    keychainStore['com.petchain.auth.refresh'] = 'refresh-abc';
+    mockPost.mockResolvedValueOnce({ data: MOCK_LOGIN_RESPONSE });
+    await login('user@example.com', 'Password1');
     mockPost.mockResolvedValueOnce({});
 
     await logout();
 
     expect(await getToken()).toBeNull();
+    expect(secureStore['com.petchain.auth.tokens']).toBeUndefined();
   });
 
   it('still clears tokens even if server call fails', async () => {
-    keychainStore['com.petchain.auth'] = FUTURE_TOKEN;
+    mockPost.mockResolvedValueOnce({ data: MOCK_LOGIN_RESPONSE });
+    await login('user@example.com', 'Password1');
     mockPost.mockRejectedValueOnce(new Error('server down'));
 
     await logout(); // must not throw
@@ -225,7 +265,8 @@ describe('getToken()', () => {
   });
 
   it('returns the stored token', async () => {
-    keychainStore['com.petchain.auth'] = FUTURE_TOKEN;
+    mockPost.mockResolvedValueOnce({ data: MOCK_LOGIN_RESPONSE });
+    await login('user@example.com', 'Password1');
     expect(await getToken()).toBe(FUTURE_TOKEN);
   });
 });
@@ -238,17 +279,24 @@ describe('isAuthenticated()', () => {
   });
 
   it('returns true for a valid non-expired token', async () => {
-    keychainStore['com.petchain.auth'] = FUTURE_TOKEN;
+    mockPost.mockResolvedValueOnce({ data: MOCK_LOGIN_RESPONSE });
+    await login('user@example.com', 'Password1');
     expect(await isAuthenticated()).toBe(true);
   });
 
   it('returns false for an expired token', async () => {
-    keychainStore['com.petchain.auth'] = EXPIRED_TOKEN;
+    mockPost.mockResolvedValueOnce({
+      data: { ...MOCK_LOGIN_RESPONSE, token: EXPIRED_TOKEN },
+    });
+    await login('user@example.com', 'Password1');
     expect(await isAuthenticated()).toBe(false);
   });
 
   it('returns false for a malformed token', async () => {
-    keychainStore['com.petchain.auth'] = 'not.a.jwt';
+    mockPost.mockResolvedValueOnce({
+      data: { ...MOCK_LOGIN_RESPONSE, token: 'not.a.jwt' },
+    });
+    await login('user@example.com', 'Password1');
     expect(await isAuthenticated()).toBe(false);
   });
 });
@@ -257,7 +305,8 @@ describe('isAuthenticated()', () => {
 
 describe('refreshToken()', () => {
   it('exchanges refresh token and stores new access token', async () => {
-    keychainStore['com.petchain.auth.refresh'] = 'refresh-abc';
+    mockPost.mockResolvedValueOnce({ data: MOCK_LOGIN_RESPONSE });
+    await login('user@example.com', 'Password1');
     const newToken = makeJwt(NOW + 7200);
     mockPost.mockResolvedValueOnce({
       data: { token: newToken, refreshToken: 'refresh-new', expiresIn: 7200 },
@@ -267,7 +316,7 @@ describe('refreshToken()', () => {
 
     expect(result).toBe(newToken);
     expect(await getToken()).toBe(newToken);
-    expect(keychainStore['com.petchain.auth.refresh']).toBe('refresh-new');
+    expect((await getSession())?.refreshToken).toBe('refresh-new');
   });
 
   it('throws NO_REFRESH_TOKEN when no refresh token stored', async () => {
@@ -275,8 +324,8 @@ describe('refreshToken()', () => {
   });
 
   it('throws REFRESH_TOKEN_EXPIRED on 401 and clears tokens', async () => {
-    keychainStore['com.petchain.auth'] = FUTURE_TOKEN;
-    keychainStore['com.petchain.auth.refresh'] = 'refresh-abc';
+    mockPost.mockResolvedValueOnce({ data: MOCK_LOGIN_RESPONSE });
+    await login('user@example.com', 'Password1');
 
     const err = Object.assign(new Error('401'), {
       isAxiosError: true,
@@ -289,7 +338,8 @@ describe('refreshToken()', () => {
   });
 
   it('throws NETWORK_ERROR on non-axios failure and clears tokens', async () => {
-    keychainStore['com.petchain.auth.refresh'] = 'refresh-abc';
+    mockPost.mockResolvedValueOnce({ data: MOCK_LOGIN_RESPONSE });
+    await login('user@example.com', 'Password1');
     mockPost.mockRejectedValueOnce(new Error('timeout'));
 
     await expect(refreshToken()).rejects.toMatchObject({ code: 'NETWORK_ERROR' });
@@ -320,8 +370,8 @@ describe('password reset + email verification', () => {
 
 describe('session management + biometric availability', () => {
   it('returns current session details when token exists', async () => {
-    keychainStore['com.petchain.auth'] = FUTURE_TOKEN;
-    keychainStore['com.petchain.auth.refresh'] = 'refresh-abc';
+    mockPost.mockResolvedValueOnce({ data: MOCK_LOGIN_RESPONSE });
+    await login('user@example.com', 'Password1');
 
     const session = await getSession();
     expect(session).toMatchObject({
@@ -332,6 +382,38 @@ describe('session management + biometric availability', () => {
 
   it('returns false when biometric api is unavailable', async () => {
     expect(await isBiometricAuthenticationAvailable()).toBe(false);
+  });
+
+  it('enables biometric auth when supported and authenticates with it', async () => {
+    supportedBiometryType = 'FaceID';
+    mockPost.mockResolvedValueOnce({ data: MOCK_LOGIN_RESPONSE });
+    await login('user@example.com', 'Password1');
+
+    await expect(promptForBiometricSetup()).resolves.toBe(true);
+    await expect(isBiometricAuthenticationEnabled()).resolves.toBe(true);
+
+    const session = await authenticateWithBiometrics();
+    expect(session.token).toBe(FUTURE_TOKEN);
+  });
+
+  it('fails gracefully when biometric auth is unsupported', async () => {
+    await expect(promptForBiometricSetup()).resolves.toBe(false);
+    await expect(authenticateWithBiometrics()).rejects.toMatchObject({
+      code: 'BIOMETRIC_UNAVAILABLE',
+    });
+  });
+
+  it('fails gracefully when biometric verification does not succeed', async () => {
+    supportedBiometryType = 'Fingerprint';
+    mockPost.mockResolvedValueOnce({ data: MOCK_LOGIN_RESPONSE });
+    await login('user@example.com', 'Password1');
+    await promptForBiometricSetup();
+
+    biometricAuthShouldFail = true;
+
+    await expect(authenticateWithBiometrics()).rejects.toMatchObject({
+      code: 'BIOMETRIC_AUTH_FAILED',
+    });
   });
 });
 

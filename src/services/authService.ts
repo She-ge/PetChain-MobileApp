@@ -1,5 +1,4 @@
 import axios, { type AxiosInstance } from 'axios';
-import * as Keychain from 'react-native-keychain';
 
 import type {
   LoginRequest,
@@ -10,14 +9,18 @@ import type {
 } from '../../backend/types/api';
 import { API_ENDPOINTS } from '../../backend/types/api';
 import config from '../config';
-
-// ─── Storage keys ────────────────────────────────────────────────────────────
-
-const KEYCHAIN_SERVICE = 'com.petchain.auth';
-const KEYCHAIN_USERNAME = 'petchain_user';
-
-// Separate service label for the refresh token so both can coexist in keychain
-const KEYCHAIN_REFRESH_SERVICE = 'com.petchain.auth.refresh';
+import {
+  authenticateWithBiometricGate,
+  clearSecureTokens,
+  disableBiometricAuthentication as disableBiometricStorage,
+  enableBiometricAuthentication as enableBiometricStorage,
+  getBiometricAvailability,
+  getSecureRefreshToken,
+  getSecureToken,
+  getSecureTokens,
+  isBiometricAuthenticationEnabled as isBiometricStorageEnabled,
+  storeSecureTokens,
+} from '../utils/encryption/keychain';
 
 // ─── Custom error ─────────────────────────────────────────────────────────────
 
@@ -52,7 +55,7 @@ const _OAUTH_ENDPOINTS: Record<OAuthProvider, string> = {
   apple: '/auth/oauth/apple',
   facebook: '/auth/oauth/facebook',
 } as const;
-void OAUTH_ENDPOINTS;
+void _OAUTH_ENDPOINTS;
 
 interface JwtPayload {
   sub: string;
@@ -133,29 +136,6 @@ function createAuthClient(): AxiosInstance {
 
 const authClient = createAuthClient();
 
-// ─── Secure storage helpers ───────────────────────────────────────────────────
-
-async function storeToken(token: string): Promise<void> {
-  await Keychain.setGenericPassword(KEYCHAIN_USERNAME, token, {
-    service: KEYCHAIN_SERVICE,
-    accessible: Keychain.ACCESSIBLE.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
-  });
-}
-
-async function storeRefreshToken(token: string): Promise<void> {
-  await Keychain.setGenericPassword(KEYCHAIN_USERNAME, token, {
-    service: KEYCHAIN_REFRESH_SERVICE,
-    accessible: Keychain.ACCESSIBLE.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
-  });
-}
-
-async function clearTokens(): Promise<void> {
-  await Promise.allSettled([
-    Keychain.resetGenericPassword({ service: KEYCHAIN_SERVICE }),
-    Keychain.resetGenericPassword({ service: KEYCHAIN_REFRESH_SERVICE }),
-  ]);
-}
-
 // ─── Public API ───────────────────────────────────────────────────────────────
 
 /**
@@ -171,10 +151,10 @@ export async function login(email: string, password: string): Promise<AuthSessio
     const payload: LoginRequest = { email, password };
     const { data } = await authClient.post<LoginResponse>(API_ENDPOINTS.AUTH_LOGIN, payload);
 
-    await storeToken(data.token);
-    if (data.refreshToken) {
-      await storeRefreshToken(data.refreshToken);
-    }
+    await storeSecureTokens({
+      token: data.token,
+      refreshToken: data.refreshToken,
+    });
 
     return {
       user: data.user,
@@ -184,6 +164,9 @@ export async function login(email: string, password: string): Promise<AuthSessio
     };
   } catch (err: unknown) {
     if (err instanceof AuthError) throw err;
+    if (err instanceof Error && err.name === 'EncryptionError') {
+      throw new AuthError('Unable to securely store your session', 'SECURE_STORAGE_ERROR');
+    }
     if (axios.isAxiosError(err)) {
       const axiosErr = err as AxiosLikeError;
       const status = axiosErr.response?.status;
@@ -205,10 +188,10 @@ export async function register(payload: RegisterRequest): Promise<AuthSession> {
   try {
     const { data } = await authClient.post<RegisterResponse>(API_ENDPOINTS.AUTH_REGISTER, payload);
 
-    await storeToken(data.token);
-    if (data.refreshToken) {
-      await storeRefreshToken(data.refreshToken);
-    }
+    await storeSecureTokens({
+      token: data.token,
+      refreshToken: data.refreshToken,
+    });
 
     return {
       user: data.user,
@@ -216,6 +199,9 @@ export async function register(payload: RegisterRequest): Promise<AuthSession> {
       refreshToken: data.refreshToken,
     };
   } catch (err: unknown) {
+    if (err instanceof Error && err.name === 'EncryptionError') {
+      throw new AuthError('Unable to securely store your session', 'SECURE_STORAGE_ERROR');
+    }
     if (axios.isAxiosError(err)) {
       const msg = (err as AxiosLikeError).response?.data?.error?.message;
       throw new AuthError(msg ?? 'Registration failed', 'REGISTRATION_FAILED');
@@ -241,7 +227,7 @@ export async function logout(): Promise<void> {
         });
     }
   } finally {
-    await clearTokens();
+    await clearSecureTokens();
   }
 }
 
@@ -250,10 +236,7 @@ export async function logout(): Promise<void> {
  */
 export async function getToken(): Promise<string | null> {
   try {
-    const credentials = await Keychain.getGenericPassword({
-      service: KEYCHAIN_SERVICE,
-    });
-    return credentials ? credentials.password : null;
+    return await getSecureToken();
   } catch {
     return null;
   }
@@ -274,36 +257,33 @@ export async function isAuthenticated(): Promise<boolean> {
  * Clears all tokens and throws if the refresh token is missing or rejected.
  */
 export async function refreshToken(): Promise<string> {
-  let storedRefresh: string | null = null;
-
   try {
-    const credentials = await Keychain.getGenericPassword({
-      service: KEYCHAIN_REFRESH_SERVICE,
-    });
-    storedRefresh = credentials ? credentials.password : null;
-  } catch {
-    storedRefresh = null;
-  }
+    const storedRefresh = await getSecureRefreshToken();
+    if (!storedRefresh) {
+      await clearSecureTokens();
+      throw new AuthError('No refresh token available — please log in again', 'NO_REFRESH_TOKEN');
+    }
 
-  if (!storedRefresh) {
-    await clearTokens();
-    throw new AuthError('No refresh token available — please log in again', 'NO_REFRESH_TOKEN');
-  }
-
-  try {
     const { data } = await authClient.post<RefreshTokenResponse>(API_ENDPOINTS.AUTH_REFRESH, {
       refreshToken: storedRefresh,
     });
 
-    await storeToken(data.token);
-    if (data.refreshToken) {
-      await storeRefreshToken(data.refreshToken);
-    }
+    await storeSecureTokens({
+      token: data.token,
+      refreshToken: data.refreshToken ?? storedRefresh,
+    });
 
     return data.token;
   } catch (err: unknown) {
     // Refresh token rejected — force re-login
-    await clearTokens();
+    await clearSecureTokens();
+
+    if (err instanceof AuthError) {
+      throw err;
+    }
+    if (err instanceof Error && err.name === 'EncryptionError') {
+      throw new AuthError('Unable to securely update your session', 'SECURE_STORAGE_ERROR');
+    }
 
     if (axios.isAxiosError(err)) {
       const axiosErr = err as AxiosLikeError;
@@ -370,36 +350,65 @@ export async function verifyEmail(token: string): Promise<void> {
 }
 
 export async function getSession(): Promise<StoredSession | null> {
-  const token = await getToken();
-  if (!token) return null;
-
-  let refresh: string | null = null;
   try {
-    const refreshCreds = await Keychain.getGenericPassword({
-      service: KEYCHAIN_REFRESH_SERVICE,
-    });
-    refresh = refreshCreds ? refreshCreds.password : null;
-  } catch {
-    refresh = null;
-  }
+    const session = await getSecureTokens();
+    if (!session?.token) {
+      return null;
+    }
 
-  return {
-    token,
-    refreshToken: refresh ?? undefined,
-  };
+    return {
+      token: session.token,
+      refreshToken: session.refreshToken,
+    };
+  } catch {
+    return null;
+  }
 }
 
 export async function isBiometricAuthenticationAvailable(): Promise<boolean> {
-  const maybeKeychain = Keychain as unknown as {
-    getSupportedBiometryType?: () => Promise<unknown>;
-  };
-  if (!maybeKeychain.getSupportedBiometryType) {
-    return false;
+  const { isAvailable } = await getBiometricAvailability();
+  return isAvailable;
+}
+
+export async function isBiometricAuthenticationEnabled(): Promise<boolean> {
+  return await isBiometricStorageEnabled();
+}
+
+export async function promptForBiometricSetup(): Promise<boolean> {
+  return await enableBiometricStorage();
+}
+
+export async function disableBiometricAuthentication(): Promise<void> {
+  await disableBiometricStorage();
+}
+
+export async function authenticateWithBiometrics(): Promise<StoredSession> {
+  if (!(await isBiometricAuthenticationAvailable())) {
+    throw new AuthError(
+      'Biometric authentication is unavailable on this device. Please use your password.',
+      'BIOMETRIC_UNAVAILABLE',
+    );
   }
-  try {
-    const biometryType = await maybeKeychain.getSupportedBiometryType();
-    return !!biometryType;
-  } catch {
-    return false;
+
+  if (!(await isBiometricAuthenticationEnabled())) {
+    throw new AuthError(
+      'Biometric authentication is not enabled. Please log in with your password.',
+      'BIOMETRIC_NOT_ENABLED',
+    );
   }
+
+  const authenticated = await authenticateWithBiometricGate();
+  if (!authenticated) {
+    throw new AuthError(
+      'Biometric authentication failed. Please continue with your password.',
+      'BIOMETRIC_AUTH_FAILED',
+    );
+  }
+
+  const session = await getSession();
+  if (!session?.token) {
+    throw new AuthError('No stored session available. Please log in again.', 'NO_STORED_SESSION');
+  }
+
+  return session;
 }
