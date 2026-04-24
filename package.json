@@ -19,10 +19,19 @@
     ]
   },
   "jest": {
-    "preset": "ts-jest",
     "testEnvironment": "node",
     "testMatch": [
       "**/__tests__/**/*.test.ts"
+    ],
+    "transform": {
+      "^.+\\.[jt]sx?$": "babel-jest"
+    },
+    "moduleFileExtensions": [
+      "ts",
+      "tsx",
+      "js",
+      "jsx",
+      "json"
     ],
     "moduleNameMapper": {
       "^react-native-keychain$": "<rootDir>/src/__mocks__/react-native-keychain.ts",
@@ -44,7 +53,7 @@
     "expo-notifications": "^0.31.1",
     "expo-secure-store": "^14.0.1",
     "react-native-image-picker": "^7.0.0",
-    "react-native-image-resizer": "^3.0.0",
+    "react-native-image-resizer": "^1.4.5",
     "react-native-keychain": "^10.0.0"
   },
   "devDependencies": {
