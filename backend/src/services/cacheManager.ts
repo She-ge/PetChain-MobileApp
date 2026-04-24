@@ -43,6 +43,27 @@ class CacheManager {
     return item.data as T;
   }
 
+  async warmCache<T>(
+    entries: Array<{ key: string; loader: () => Promise<T>; ttl?: number }>
+  ): Promise<void> {
+    await Promise.all(
+      entries.map(async ({ key, loader, ttl }) => {
+        try {
+          const data = await loader();
+          await this.cacheData(key, data, ttl);
+        } catch {
+          // warming failures are non-fatal
+        }
+      })
+    );
+  }
+
+  invalidatePattern(pattern: RegExp): void {
+    for (const key of this.cache.keys()) {
+      if (pattern.test(key)) this.cache.delete(key);
+    }
+  }
+
   async invalidateCache(key: string): Promise<void> {
     this.cache.delete(key);
   }

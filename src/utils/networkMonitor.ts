@@ -3,24 +3,39 @@ import NetInfo, { type NetInfoState, type NetInfoStateType } from '@react-native
 type NetworkCallback = (isOnline: boolean) => void;
 type SyncCallback = () => Promise<void>;
 
+export type ConnectionType = 'wifi' | 'cellular' | 'unknown' | 'none';
+
+export interface NetworkStatus {
+  isOnline: boolean;
+  connectionType: ConnectionType;
+}
+
 class NetworkMonitor {
   private unsubscribe: (() => void) | null = null;
   private callbacks: NetworkCallback[] = [];
+  private statusCallbacks: Array<(status: NetworkStatus) => void> = [];
   private syncCallback: SyncCallback | null = null;
   private isCurrentlyOnline = false;
+  private currentConnectionType: ConnectionType = 'unknown';
 
   startNetworkMonitoring(): void {
     this.unsubscribe = NetInfo.addEventListener((state: NetInfoState) => {
       const wasOnline = this.isCurrentlyOnline;
       this.isCurrentlyOnline = state.isConnected ?? false;
+      this.currentConnectionType = this.resolveConnectionType(state.type);
 
-      // Trigger sync when coming online
+      const status: NetworkStatus = {
+        isOnline: this.isCurrentlyOnline,
+        connectionType: this.currentConnectionType,
+      };
+
+      // Trigger sync when coming back online
       if (!wasOnline && this.isCurrentlyOnline && this.syncCallback) {
         this.syncCallback().catch(console.error);
       }
 
-      // Notify all callbacks
-      this.callbacks.forEach((callback) => callback(this.isCurrentlyOnline));
+      this.callbacks.forEach((cb) => cb(this.isCurrentlyOnline));
+      this.statusCallbacks.forEach((cb) => cb(status));
     });
   }
 
@@ -30,6 +45,7 @@ class NetworkMonitor {
       this.unsubscribe = null;
     }
     this.callbacks = [];
+    this.statusCallbacks = [];
   }
 
   async isOnline(): Promise<boolean> {
@@ -42,6 +58,14 @@ class NetworkMonitor {
     return state.type;
   }
 
+  async getStatus(): Promise<NetworkStatus> {
+    const state = await NetInfo.fetch();
+    return {
+      isOnline: state.isConnected ?? false,
+      connectionType: this.resolveConnectionType(state.type),
+    };
+  }
+
   onNetworkChange(callback: NetworkCallback): () => void {
     this.callbacks.push(callback);
     return () => {
@@ -49,14 +73,26 @@ class NetworkMonitor {
     };
   }
 
+  onStatusChange(callback: (status: NetworkStatus) => void): () => void {
+    this.statusCallbacks.push(callback);
+    return () => {
+      this.statusCallbacks = this.statusCallbacks.filter((cb) => cb !== callback);
+    };
+  }
+
   setSyncCallback(callback: SyncCallback): void {
     this.syncCallback = callback;
   }
 
-  async getNetworkQuality(): Promise<'wifi' | 'cellular' | 'unknown'> {
+  async getNetworkQuality(): Promise<ConnectionType> {
     const state = await NetInfo.fetch();
-    if (state.type === 'wifi') return 'wifi';
-    if (state.type === 'cellular') return 'cellular';
+    return this.resolveConnectionType(state.type);
+  }
+
+  private resolveConnectionType(type: NetInfoStateType): ConnectionType {
+    if (type === 'wifi' || type === 'ethernet') return 'wifi';
+    if (type === 'cellular') return 'cellular';
+    if (type === 'none' || type === 'unknown') return type as ConnectionType;
     return 'unknown';
   }
 }
@@ -68,7 +104,10 @@ export const startNetworkMonitoring = () => networkMonitor.startNetworkMonitorin
 export const stopNetworkMonitoring = () => networkMonitor.stopNetworkMonitoring();
 export const isOnline = () => networkMonitor.isOnline();
 export const getNetworkType = () => networkMonitor.getNetworkType();
+export const getStatus = () => networkMonitor.getStatus();
 export const onNetworkChange = (callback: NetworkCallback) =>
   networkMonitor.onNetworkChange(callback);
+export const onStatusChange = (callback: (status: NetworkStatus) => void) =>
+  networkMonitor.onStatusChange(callback);
 export const setSyncCallback = (callback: SyncCallback) => networkMonitor.setSyncCallback(callback);
 export const getNetworkQuality = () => networkMonitor.getNetworkQuality();
