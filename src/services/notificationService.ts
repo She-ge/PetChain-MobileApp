@@ -1,27 +1,28 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// ─── Types ───────────────────────────────────────────────────────────────────
 
 export interface Medication {
   id: string;
   name: string;
   dosage: string;
   frequency: number; // hours between doses
-  startDate: Date;
+  startDate: string;
+  endDate?: string;
 }
 
 export interface Appointment {
   id: string;
   title: string;
-  date: Date;
+  date: string;
   location?: string;
 }
 
 export interface Vaccination {
   id: string;
   name: string;
-  dueDate: Date;
+  dueDate: string;
   petId: string;
 }
 
@@ -37,7 +38,7 @@ export interface NotificationPreferences {
 export type NotificationGroup = 'medication' | 'appointment' | 'vaccination' | 'alert';
 
 const PREFS_KEY = '@notification_preferences';
-const NOTIFICATION_MAP_KEY = '@notification_map'; // maps entity id -> notification id
+const NOTIFICATION_MAP_KEY = '@notification_map'; // maps entity id -> notification ids
 
 const DEFAULT_PREFS: NotificationPreferences = {
   medicationReminders: true,
@@ -91,14 +92,14 @@ export const savePreferences = async (prefs: Partial<NotificationPreferences>): 
 
 // ─── Notification ID map helpers ─────────────────────────────────────────────
 
-const getNotificationMap = async (): Promise<Record<string, string>> => {
+const getNotificationMap = async (): Promise<Record<string, string[]>> => {
   const stored = await AsyncStorage.getItem(NOTIFICATION_MAP_KEY);
   return stored ? JSON.parse(stored) : {};
 };
 
-const saveNotificationId = async (entityId: string, notificationId: string): Promise<void> => {
+const saveNotificationIds = async (entityId: string, notificationIds: string[]): Promise<void> => {
   const map = await getNotificationMap();
-  map[entityId] = notificationId;
+  map[entityId] = notificationIds;
   await AsyncStorage.setItem(NOTIFICATION_MAP_KEY, JSON.stringify(map));
 };
 
@@ -110,32 +111,59 @@ const removeNotificationId = async (entityId: string): Promise<void> => {
 
 // ─── Medication reminders ─────────────────────────────────────────────────────
 
-export const scheduleMedicationReminder = async (medication: Medication): Promise<string> => {
+export const scheduleMedicationReminder = async (medication: Medication): Promise<string[]> => {
   const prefs = await getPreferences();
-  if (!prefs.medicationReminders) return '';
+  if (!prefs.medicationReminders) return [];
 
-  // Cancel existing reminder for this medication if any
   await cancelEntityNotification(medication.id);
 
   const startDate = new Date(medication.startDate);
-  const notificationId = await Notifications.scheduleNotificationAsync({
-    content: {
-      title: '💊 Medication Reminder',
-      body: `Time to give ${medication.name} (${medication.dosage})`,
-      sound: prefs.soundEnabled ? 'default' : undefined,
-      data: { type: 'medication' as NotificationGroup, medicationId: medication.id },
-      categoryIdentifier: 'medication',
-    },
-    trigger: {
-      type: 'calendar',
-      hour: startDate.getHours(),
-      minute: startDate.getMinutes(),
-      repeats: true,
-    } as Notifications.CalendarTriggerInput,
-  });
+  if (Number.isNaN(startDate.getTime())) return [];
 
-  await saveNotificationId(medication.id, notificationId);
-  return notificationId;
+  const now = new Date();
+  const windowStart = startDate > now ? startDate : now;
+  const windowEnd = new Date(windowStart);
+  windowEnd.setDate(windowEnd.getDate() + 7);
+
+  const intervalMs = medication.frequency * 60 * 60 * 1000;
+  if (intervalMs <= 0) return [];
+
+  const endDate = medication.endDate ? new Date(medication.endDate) : null;
+  if (endDate && Number.isNaN(endDate.getTime())) return [];
+  if (endDate && endDate < windowStart) return [];
+
+  const lastDate = endDate && endDate < windowEnd ? endDate : windowEnd;
+  const notificationIds: string[] = [];
+
+  let currentDose = new Date(startDate);
+  if (currentDose < windowStart) {
+    const diff = windowStart.getTime() - currentDose.getTime();
+    const steps = Math.ceil(diff / intervalMs);
+    currentDose = new Date(currentDose.getTime() + steps * intervalMs);
+  }
+
+  while (currentDose <= lastDate) {
+    if (currentDose > new Date()) {
+      const notificationId = await Notifications.scheduleNotificationAsync({
+        content: {
+          title: '💊 Medication Reminder',
+          body: `Time to give ${medication.name} (${medication.dosage})`,
+          sound: prefs.soundEnabled ? 'default' : undefined,
+          data: { type: 'medication' as NotificationGroup, medicationId: medication.id },
+          categoryIdentifier: 'medication',
+        },
+        trigger: {
+          type: 'date',
+          date: currentDose,
+        } as Notifications.DateTriggerInput,
+      });
+      notificationIds.push(notificationId);
+    }
+    currentDose = new Date(currentDose.getTime() + intervalMs);
+  }
+
+  await saveNotificationIds(medication.id, notificationIds);
+  return notificationIds;
 };
 
 // ─── Appointment reminders ────────────────────────────────────────────────────
@@ -169,7 +197,7 @@ export const scheduleAppointmentNotification = async (
     } as Notifications.DateTriggerInput,
   });
 
-  await saveNotificationId(appointment.id, notificationId);
+  await saveNotificationIds(appointment.id, [notificationId]);
   return notificationId;
 };
 
@@ -186,14 +214,10 @@ export const scheduleVaccinationReminder = async (vaccination: Vaccination): Pro
 
   const notificationId = await Notifications.scheduleNotificationAsync({
     content: {
-      title: '💉 Vaccination Due',
-      body: `${vaccination.name} vaccination is due for your pet`,
+      title: 'Vaccination Reminder',
+      body: `${vaccination.name} is due soon`,
       sound: prefs.soundEnabled ? 'default' : undefined,
-      data: {
-        type: 'vaccination' as NotificationGroup,
-        vaccinationId: vaccination.id,
-        petId: vaccination.petId,
-      },
+      data: { type: 'vaccination' as NotificationGroup, vaccinationId: vaccination.id },
       categoryIdentifier: 'vaccination',
     },
     trigger: {
@@ -202,19 +226,19 @@ export const scheduleVaccinationReminder = async (vaccination: Vaccination): Pro
     } as Notifications.DateTriggerInput,
   });
 
-  await saveNotificationId(vaccination.id, notificationId);
+  await saveNotificationIds(vaccination.id, [notificationId]);
   return notificationId;
 };
 
-// ─── Custom / alert notifications ────────────────────────────────────────────
+// ─── Alert helpers ───────────────────────────────────────────────────────────
 
-export const sendImmediateAlert = async (
+export const sendAlertNotification = async (
   title: string,
   body: string,
-  data?: Record<string, unknown>,
+  data: Record<string, unknown> = {},
 ): Promise<string> => {
   const prefs = await getPreferences();
-  return Notifications.scheduleNotificationAsync({
+  const notificationId = await Notifications.scheduleNotificationAsync({
     content: {
       title,
       body,
@@ -224,17 +248,20 @@ export const sendImmediateAlert = async (
     },
     trigger: null, // fire immediately
   });
+  return notificationId;
 };
 
 // ─── Cancel helpers ───────────────────────────────────────────────────────────
 
 export const cancelEntityNotification = async (entityId: string): Promise<void> => {
   const map = await getNotificationMap();
-  const notificationId = map[entityId];
-  if (notificationId) {
-    await Notifications.cancelScheduledNotificationAsync(notificationId);
-    await removeNotificationId(entityId);
-  }
+  const notificationIds = map[entityId] ?? [];
+  await Promise.all(
+    notificationIds.map((notificationId) =>
+      Notifications.cancelScheduledNotificationAsync(notificationId),
+    ),
+  );
+  await removeNotificationId(entityId);
 };
 
 export const cancelNotification = async (notificationId: string): Promise<void> => {
@@ -248,7 +275,9 @@ export const cancelAllNotifications = async (): Promise<void> => {
 
 // ─── Grouping helpers ─────────────────────────────────────────────────────────
 
-export const cancelGroupNotifications = async (group: NotificationGroup): Promise<void> => {
+export const cancelGroupNotifications = async (
+  group: NotificationGroup,
+): Promise<Notifications.NotificationRequest[]> => {
   const scheduled = await Notifications.getAllScheduledNotificationsAsync();
   const toCancel = scheduled.filter(
     (n: Notifications.NotificationRequest) => n.content.data?.type === group,
@@ -258,6 +287,7 @@ export const cancelGroupNotifications = async (group: NotificationGroup): Promis
       Notifications.cancelScheduledNotificationAsync(n.identifier),
     ),
   );
+  return toCancel;
 };
 
 export const getScheduledByGroup = async (

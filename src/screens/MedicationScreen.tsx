@@ -22,6 +22,7 @@ import {
   saveMedication,
   scheduleRefillReminder,
 } from '../services/medicationService';
+import { scheduleMedicationReminder } from '../services/notificationService';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -30,11 +31,16 @@ type Tab = 'list' | 'daily' | 'weekly';
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 const EMPTY_FORM: Omit<Medication, 'id'> = {
+  petId: '',
   name: '',
   dosage: '',
   frequency: 8,
   startDate: new Date().toISOString(),
+  endDate: '',
   refillDate: '',
+  instructions: '',
+  prescriberInfo: { name: '', contact: '', clinic: '' },
+  pharmacyInfo: { name: '', phone: '', address: '' },
   totalPills: undefined,
   remainingPills: undefined,
   notes: '',
@@ -105,8 +111,8 @@ const MedicationScreen: React.FC = () => {
   // ── Save ───────────────────────────────────────────────────────────────────
 
   const handleSave = async () => {
-    if (!form.name.trim() || !form.dosage.trim()) {
-      Alert.alert('Validation', 'Name and dosage are required.');
+    if (!form.petId.trim() || !form.name.trim() || !form.dosage.trim()) {
+      Alert.alert('Validation', 'Pet ID, name, and dosage are required.');
       return;
     }
     const med: Medication = {
@@ -118,6 +124,7 @@ const MedicationScreen: React.FC = () => {
     };
     await saveMedication(med);
     await scheduleRefillReminder(med);
+    await scheduleMedicationReminder(med);
     closeModal();
     void loadData();
   };
@@ -199,6 +206,24 @@ const MedicationScreen: React.FC = () => {
         </Text>
         <Text style={styles.medDetail}>Started: {formatDate(item.startDate)}</Text>
 
+        <Text style={styles.medDetail}>Pet ID: {item.petId}</Text>
+        {item.instructions ? (
+          <Text style={styles.medDetail}>Instructions: {item.instructions}</Text>
+        ) : null}
+        {item.prescriberInfo?.name ? (
+          <Text style={styles.medDetail}>
+            Prescriber: {item.prescriberInfo.name}
+            {item.prescriberInfo.contact ? ` • ${item.prescriberInfo.contact}` : ''}
+          </Text>
+        ) : null}
+        {item.pharmacyInfo?.name ? (
+          <Text style={styles.medDetail}>
+            Pharmacy: {item.pharmacyInfo.name}
+            {item.pharmacyInfo.phone ? ` • ${item.pharmacyInfo.phone}` : ''}
+          </Text>
+        ) : null}
+        <Text style={styles.medDetail}>Started: {formatDate(item.startDate)}</Text>
+        {item.endDate && <Text style={styles.medDetail}>Ends: {formatDate(item.endDate)}</Text>}
         {item.remainingPills !== undefined && (
           <Text style={[styles.medDetail, lowStock && styles.lowStock]}>
             Pills remaining: {item.remainingPills}
@@ -300,9 +325,23 @@ const MedicationScreen: React.FC = () => {
           />
           <TextInput
             style={styles.input}
+            placeholder="Pet ID *"
+            value={form.petId}
+            onChangeText={(v) => setForm((f) => ({ ...f, petId: v }))}
+          />
+          <TextInput
+            style={styles.input}
             placeholder="Start date (YYYY-MM-DD)"
             value={form.startDate.slice(0, 10)}
             onChangeText={(v) => setForm((f) => ({ ...f, startDate: new Date(v).toISOString() }))}
+          />
+          <TextInput
+            style={styles.input}
+            placeholder="End date (YYYY-MM-DD)"
+            value={form.endDate?.slice(0, 10) ?? ''}
+            onChangeText={(v) =>
+              setForm((f) => ({ ...f, endDate: v ? new Date(v).toISOString() : '' }))
+            }
           />
           <TextInput
             style={styles.input}
@@ -310,6 +349,79 @@ const MedicationScreen: React.FC = () => {
             value={form.refillDate?.slice(0, 10) ?? ''}
             onChangeText={(v) =>
               setForm((f) => ({ ...f, refillDate: v ? new Date(v).toISOString() : '' }))
+            }
+          />
+          <TextInput
+            style={[styles.input, styles.textArea]}
+            placeholder="Instructions"
+            multiline
+            value={form.instructions ?? ''}
+            onChangeText={(v) => setForm((f) => ({ ...f, instructions: v }))}
+          />
+          <TextInput
+            style={styles.input}
+            placeholder="Prescriber name"
+            value={form.prescriberInfo?.name ?? ''}
+            onChangeText={(v) =>
+              setForm((f) => ({
+                ...f,
+                prescriberInfo: { ...f.prescriberInfo, name: v },
+              }))
+            }
+          />
+          <TextInput
+            style={styles.input}
+            placeholder="Prescriber contact"
+            value={form.prescriberInfo?.contact ?? ''}
+            onChangeText={(v) =>
+              setForm((f) => ({
+                ...f,
+                prescriberInfo: { ...f.prescriberInfo, contact: v },
+              }))
+            }
+          />
+          <TextInput
+            style={styles.input}
+            placeholder="Prescriber clinic"
+            value={form.prescriberInfo?.clinic ?? ''}
+            onChangeText={(v) =>
+              setForm((f) => ({
+                ...f,
+                prescriberInfo: { ...f.prescriberInfo, clinic: v },
+              }))
+            }
+          />
+          <TextInput
+            style={styles.input}
+            placeholder="Pharmacy name"
+            value={form.pharmacyInfo?.name ?? ''}
+            onChangeText={(v) =>
+              setForm((f) => ({
+                ...f,
+                pharmacyInfo: { ...f.pharmacyInfo, name: v },
+              }))
+            }
+          />
+          <TextInput
+            style={styles.input}
+            placeholder="Pharmacy phone"
+            value={form.pharmacyInfo?.phone ?? ''}
+            onChangeText={(v) =>
+              setForm((f) => ({
+                ...f,
+                pharmacyInfo: { ...f.pharmacyInfo, phone: v },
+              }))
+            }
+          />
+          <TextInput
+            style={styles.input}
+            placeholder="Pharmacy address"
+            value={form.pharmacyInfo?.address ?? ''}
+            onChangeText={(v) =>
+              setForm((f) => ({
+                ...f,
+                pharmacyInfo: { ...f.pharmacyInfo, address: v },
+              }))
             }
           />
           <TextInput

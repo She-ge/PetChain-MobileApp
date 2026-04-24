@@ -1,19 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+import type { Medication } from '../models/Medication';
 
-export interface Medication {
-  id: string;
-  name: string;
-  dosage: string;
-  frequency: number; // hours between doses
-  startDate: string; // ISO string
-  refillDate?: string; // ISO string
-  totalPills?: number;
-  remainingPills?: number;
-  notes?: string;
-}
+export type { Medication };
 
 export interface DoseLog {
   id: string;
@@ -25,8 +15,6 @@ export interface DoseLog {
 
 const MEDICATIONS_KEY = '@medications';
 const DOSE_LOGS_KEY = '@dose_logs';
-
-// ─── Storage ──────────────────────────────────────────────────────────────────
 
 export async function getMedications(): Promise<Medication[]> {
   const raw = await AsyncStorage.getItem(MEDICATIONS_KEY);
@@ -57,36 +45,65 @@ export async function logDose(log: DoseLog): Promise<void> {
   await AsyncStorage.setItem(DOSE_LOGS_KEY, JSON.stringify(logs));
 }
 
-// ─── Schedule helpers ─────────────────────────────────────────────────────────
+export function getMedicationEndDate(med: Medication): Date | null {
+  if (!med.endDate) return null;
+  const end = new Date(med.endDate);
+  return Number.isNaN(end.getTime()) ? null : end;
+}
 
-/** Returns the scheduled dose times for a medication within a given day (local). */
-export function getDaySchedule(med: Medication, date: Date): Date[] {
+export function isMedicationActive(med: Medication, date = new Date()): boolean {
+  const now = date;
+  const start = new Date(med.startDate);
+  if (Number.isNaN(start.getTime()) || now < start) return false;
+  const end = getMedicationEndDate(med);
+  if (end && now > end) return false;
+  return med.status !== 'paused' && med.status !== 'discontinued';
+}
+
+export function getScheduleForRange(med: Medication, fromDate: Date, toDate: Date): Date[] {
   const times: Date[] = [];
   const start = new Date(med.startDate);
-  const intervalMs = med.frequency * 60 * 60 * 1000;
+  if (Number.isNaN(start.getTime()) || fromDate > toDate) return times;
 
-  // Align first dose to start of the given day or med start, whichever is later
+  const end = getMedicationEndDate(med);
+  if (end && fromDate > end) return times;
+
+  const intervalMs = med.frequency * 60 * 60 * 1000;
+  if (intervalMs <= 0) return times;
+
+  if (toDate < start) return times;
+
+  let cursor = new Date(start);
+  if (cursor < fromDate) {
+    const diff = fromDate.getTime() - cursor.getTime();
+    const steps = Math.ceil(diff / intervalMs);
+    cursor = new Date(cursor.getTime() + steps * intervalMs);
+  }
+
+  const lastDate = end && end < toDate ? end : toDate;
+  while (cursor <= lastDate) {
+    if (cursor >= fromDate) {
+      times.push(new Date(cursor));
+    }
+    cursor = new Date(cursor.getTime() + intervalMs);
+  }
+
+  return times;
+}
+
+export function getDaySchedule(med: Medication, date: Date): Date[] {
   const dayStart = new Date(date);
   dayStart.setHours(0, 0, 0, 0);
   const dayEnd = new Date(date);
   dayEnd.setHours(23, 59, 59, 999);
-
-  // Find first dose on or after dayStart
-  let t = new Date(start);
-  if (t < dayStart) {
-    const diff = dayStart.getTime() - t.getTime();
-    const steps = Math.ceil(diff / intervalMs);
-    t = new Date(t.getTime() + steps * intervalMs);
-  }
-
-  while (t <= dayEnd) {
-    times.push(new Date(t));
-    t = new Date(t.getTime() + intervalMs);
-  }
-  return times;
+  return getScheduleForRange(med, dayStart, dayEnd);
 }
 
-// ─── Notifications ────────────────────────────────────────────────────────────
+export function getUpcomingDoseTimes(med: Medication, days = 7, fromDate = new Date()): Date[] {
+  const windowEnd = new Date(fromDate);
+  windowEnd.setDate(windowEnd.getDate() + days);
+  return getScheduleForRange(med, fromDate, windowEnd);
+}
 
 export async function scheduleRefillReminder(med: Medication): Promise<void> {
   if (!med.refillDate) return;
