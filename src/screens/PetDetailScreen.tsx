@@ -64,11 +64,11 @@ const PetDetailScreen: React.FC<Props> = ({ petId, onBack, onEdit }) => {
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={onBack} style={styles.backBtn}>
+        <TouchableOpacity onPress={onBack} style={styles.backBtn} accessibilityRole="button" accessibilityLabel="Back">
           <Text style={styles.backText}>‹ Back</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{pet.name}</Text>
-        <TouchableOpacity onPress={() => onEdit(pet)} style={styles.editBtn}>
+        <TouchableOpacity onPress={() => onEdit(pet)} style={styles.editBtn} accessibilityRole="button" accessibilityLabel="Edit pet" accessibilityHint="Opens edit form">
           <Text style={styles.editBtnText}>Edit</Text>
         </TouchableOpacity>
       </View>
@@ -77,7 +77,7 @@ const PetDetailScreen: React.FC<Props> = ({ petId, onBack, onEdit }) => {
         {/* Photo */}
         <View style={styles.photoSection}>
           {photo ? (
-            <Image source={{ uri: photo }} style={styles.photo} />
+            <Image source={{ uri: photo }} style={styles.photo} accessible accessibilityLabel={`${pet.name} photo`} />
           ) : (
             <View style={[styles.photo, styles.photoPlaceholder]}>
               <Text style={styles.photoEmoji}>🐾</Text>
@@ -98,7 +98,7 @@ const PetDetailScreen: React.FC<Props> = ({ petId, onBack, onEdit }) => {
             ))}
         </View>
 
-        <TouchableOpacity style={styles.deleteBtn} onPress={handleDelete}>
+        <TouchableOpacity style={styles.deleteBtn} onPress={handleDelete} accessibilityRole="button" accessibilityLabel="Delete pet" accessibilityHint={`Deletes ${pet.name}`}>
           <Text style={styles.deleteBtnText}>Delete Pet</Text>
         </TouchableOpacity>
       </ScrollView>

@@ -48,9 +48,15 @@ const PetListScreen: React.FC<Props> = ({ onSelectPet, onAddPet }) => {
   }, [load]);
 
   const renderItem = ({ item }: { item: Pet }) => (
-    <TouchableOpacity style={styles.card} onPress={() => onSelectPet(item)}>
+    <TouchableOpacity
+      style={styles.card}
+      onPress={() => onSelectPet(item)}
+      accessibilityRole="button"
+      accessibilityLabel={`${item.name}, ${item.species}`}
+      accessibilityHint="Opens pet details"
+    >
       {photos[item.id] ? (
-        <Image source={{ uri: photos[item.id] }} style={styles.avatar} />
+        <Image source={{ uri: photos[item.id] }} style={styles.avatar} accessible accessibilityLabel={`${item.name} photo`} />
       ) : (
         <View style={[styles.avatar, styles.avatarPlaceholder]}>
           <Text style={styles.avatarEmoji}>🐾</Text>
@@ -76,7 +82,13 @@ const PetListScreen: React.FC<Props> = ({ onSelectPet, onAddPet }) => {
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>My Pets</Text>
-        <TouchableOpacity style={styles.addBtn} onPress={onAddPet}>
+        <TouchableOpacity
+          style={styles.addBtn}
+          onPress={onAddPet}
+          accessibilityRole="button"
+          accessibilityLabel="Add pet"
+          accessibilityHint="Adds a new pet"
+        >
           <Text style={styles.addBtnText}>+ Add</Text>
         </TouchableOpacity>
       </View>
@@ -89,7 +101,7 @@ const PetListScreen: React.FC<Props> = ({ onSelectPet, onAddPet }) => {
           keyExtractor={(p) => p.id}
           renderItem={renderItem}
           contentContainerStyle={styles.list}
-          ListEmptyComponent={<Text style={styles.empty}>No pets yet. Add one!</Text>}
+          ListEmptyComponent={<Text style={styles.empty} accessibilityLiveRegion="polite">No pets yet. Add one!</Text>}
           onRefresh={load}
           refreshing={loading}
         />
