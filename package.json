@@ -19,13 +19,25 @@
     ]
   },
   "jest": {
-    "preset": "ts-jest",
     "testEnvironment": "node",
     "testMatch": [
       "**/__tests__/**/*.test.ts"
     ],
+    "transform": {
+      "^.+\\.[jt]sx?$": "babel-jest"
+    },
+    "moduleFileExtensions": [
+      "ts",
+      "tsx",
+      "js",
+      "jsx",
+      "json"
+    ],
     "moduleNameMapper": {
+      "^react-native$": "<rootDir>/src/__mocks__/react-native.ts",
       "^react-native-keychain$": "<rootDir>/src/__mocks__/react-native-keychain.ts",
+      "^react-native-image-picker$": "<rootDir>/src/__mocks__/react-native-image-picker.ts",
+      "^react-native-image-resizer$": "<rootDir>/src/__mocks__/react-native-image-resizer.ts",
       "^expo-constants$": "<rootDir>/src/__mocks__/expo-constants.ts"
     },
     "collectCoverageFrom": [
@@ -35,25 +47,31 @@
     ]
   },
   "dependencies": {
+    "@urql/core": "^5.0.0",
+    "graphql": "^16.0.0",
     "@react-native-async-storage/async-storage": "^2.1.2",
     "@react-native-community/geolocation": "^3.4.0",
     "@react-native-community/netinfo": "^11.4.1",
-    "@sentry/react-native": "^6.0.0",
+    "@react-navigation/bottom-tabs": "6.6.1",
+    "@react-navigation/native": "6.1.18",
+    "@react-navigation/native-stack": "6.11.0",
     "axios": "^1.13.5",
     "crypto-js": "^4.2.0",
     "expo-constants": "^18.0.13",
     "expo-notifications": "^0.31.1",
     "expo-secure-store": "^14.0.1",
     "react-native-image-picker": "^7.0.0",
-    "react-native-image-resizer": "^3.0.0",
+    "react-native-image-resizer": "^1.4.5",
     "react-native-keychain": "^10.0.0"
+    ,
+    "react-native-ssl-pinning": "^1.5.3"
   },
   "devDependencies": {
     "@eslint/js": "9.26.0",
     "@types/crypto-js": "^4.2.2",
     "@types/jest": "^29.5.14",
     "@types/node": "^20.0.0",
-    "@types/react": "^18.0.0",
+    "@types/react": "^19.1.1",
     "@types/react-native": "^0.72.0",
     "eslint": "9.26.0",
     "eslint-plugin-import": "2.31.0",

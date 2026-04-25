@@ -1,4 +1,4 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getItem, setItem } from './localDB';
 
 import apiClient from './apiClient';
 import { networkMonitor } from '../utils/networkMonitor';
@@ -85,7 +85,7 @@ class SyncService {
       queue.push(item);
     }
 
-    await AsyncStorage.setItem(SYNC_QUEUE_KEY, JSON.stringify(queue));
+    await setItem(SYNC_QUEUE_KEY, JSON.stringify(queue));
     await this.patchStatus({ pendingCount: queue.length });
   }
 
@@ -99,13 +99,13 @@ class SyncService {
         // Persist each item locally
         for (const item of serverItems) {
           const key = `@${type}_${item.id}`;
-          const localRaw = await AsyncStorage.getItem(key);
+          const localRaw = await getItem(key);
           if (localRaw) {
             const local = JSON.parse(localRaw) as Record<string, unknown>;
             const resolved = await this.resolveConflict(type, local, item, 'last-write-wins');
-            await AsyncStorage.setItem(key, JSON.stringify(resolved));
+            await setItem(key, JSON.stringify(resolved));
           } else {
-            await AsyncStorage.setItem(key, JSON.stringify(item));
+            await setItem(key, JSON.stringify(item));
           }
         }
       } catch {
@@ -139,7 +139,7 @@ class SyncService {
       }
     }
 
-    await AsyncStorage.setItem(SYNC_QUEUE_KEY, JSON.stringify(failed));
+    await setItem(SYNC_QUEUE_KEY, JSON.stringify(failed));
     await this.patchStatus({
       isSyncing: false,
       lastSync: Date.now(),
@@ -186,7 +186,7 @@ class SyncService {
   }
 
   async getConflicts(): Promise<ConflictRecord[]> {
-    const stored = await AsyncStorage.getItem(CONFLICTS_KEY);
+    const stored = await getItem(CONFLICTS_KEY);
     return stored ? JSON.parse(stored) : [];
   }
 
@@ -210,7 +210,7 @@ class SyncService {
   // ── Status ───────────────────────────────────────────────────────────────────
 
   async getStatus(): Promise<SyncStatus> {
-    const stored = await AsyncStorage.getItem(SYNC_STATUS_KEY);
+    const stored = await getItem(SYNC_STATUS_KEY);
     const status: SyncStatus = stored ? JSON.parse(stored) : DEFAULT_STATUS;
     status.conflicts = await this.getConflicts();
     return status;
@@ -262,15 +262,12 @@ class SyncService {
     const idx = conflicts.findIndex((c) => c.entityId === conflict.entityId);
     if (idx >= 0) conflicts[idx] = conflict;
     else conflicts.push(conflict);
-    await AsyncStorage.setItem(CONFLICTS_KEY, JSON.stringify(conflicts));
+    await setItem(CONFLICTS_KEY, JSON.stringify(conflicts));
   }
 
   private async removeConflict(entityId: string): Promise<void> {
     const conflicts = await this.getConflicts();
-    await AsyncStorage.setItem(
-      CONFLICTS_KEY,
-      JSON.stringify(conflicts.filter((c) => c.entityId !== entityId)),
-    );
+    await setItem(CONFLICTS_KEY, JSON.stringify(conflicts.filter((c) => c.entityId !== entityId)));
   }
 }
 

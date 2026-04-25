@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import ErrorBoundary from '../components/ErrorBoundary';
 import {
   View,
   Text,
@@ -149,30 +150,32 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, onSkip 
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
+    <ErrorBoundary>
+      <SafeAreaView style={styles.container}>
+        <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
 
-      <View style={styles.header}>
-        <TouchableOpacity onPress={handleSkip}>
-          <Text style={styles.skipText}>Skip</Text>
-        </TouchableOpacity>
-      </View>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={handleSkip} accessibilityRole="button" accessibilityLabel="Skip onboarding">
+            <Text style={styles.skipText}>Skip</Text>
+          </TouchableOpacity>
+        </View>
 
-      <ScrollView
-        horizontal
-        pagingEnabled
-        showsHorizontalScrollIndicator={false}
-        onMomentumScrollEnd={(event) => {
-          const slideIndex = Math.round(event.nativeEvent.contentOffset.x / width);
-          setCurrentPage(slideIndex);
-        }}
-        style={styles.scrollView}
-      >
-        {slides.map((slide, index) => renderSlide(slide, index))}
-      </ScrollView>
+        <ScrollView
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          onMomentumScrollEnd={(event) => {
+            const slideIndex = Math.round(event.nativeEvent.contentOffset.x / width);
+            setCurrentPage(slideIndex);
+          }}
+          style={styles.scrollView}
+        >
+          {slides.map((slide, index) => renderSlide(slide, index))}
+        </ScrollView>
 
-      {renderPagination()}
-    </SafeAreaView>
+        {renderPagination()}
+      </SafeAreaView>
+    </ErrorBoundary>
   );
 };
 

@@ -3,7 +3,6 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
-  Image,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -11,7 +10,7 @@ import {
 } from 'react-native';
 
 import petService, { type Pet } from '../services/petService';
-import { getPhoto } from '../utils/petPhotoStore';
+import { OptimizedImage } from '../components/OptimizedImage';
 
 interface Props {
   onSelectPet: (pet: Pet) => void;
@@ -20,7 +19,6 @@ interface Props {
 
 const PetListScreen: React.FC<Props> = ({ onSelectPet, onAddPet }) => {
   const [pets, setPets] = useState<Pet[]>([]);
-  const [photos, setPhotos] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
 
   const load = useCallback(async () => {
@@ -28,14 +26,6 @@ const PetListScreen: React.FC<Props> = ({ onSelectPet, onAddPet }) => {
     try {
       const data = await petService.getAllPets();
       setPets(data);
-      const photoMap: Record<string, string> = {};
-      await Promise.all(
-        data.map(async (p) => {
-          const uri = await getPhoto(p.id);
-          if (uri) photoMap[p.id] = uri;
-        }),
-      );
-      setPhotos(photoMap);
     } catch {
       Alert.alert('Error', 'Failed to load pets.');
     } finally {
@@ -48,9 +38,15 @@ const PetListScreen: React.FC<Props> = ({ onSelectPet, onAddPet }) => {
   }, [load]);
 
   const renderItem = ({ item }: { item: Pet }) => (
-    <TouchableOpacity style={styles.card} onPress={() => onSelectPet(item)}>
+    <TouchableOpacity
+      style={styles.card}
+      onPress={() => onSelectPet(item)}
+      accessibilityRole="button"
+      accessibilityLabel={`${item.name}, ${item.species}`}
+      accessibilityHint="Opens pet details"
+    >
       {photos[item.id] ? (
-        <Image source={{ uri: photos[item.id] }} style={styles.avatar} />
+        <Image source={{ uri: photos[item.id] }} style={styles.avatar} accessible accessibilityLabel={`${item.name} photo`} />
       ) : (
         <View style={[styles.avatar, styles.avatarPlaceholder]}>
           <Text style={styles.avatarEmoji}>🐾</Text>
@@ -76,7 +72,13 @@ const PetListScreen: React.FC<Props> = ({ onSelectPet, onAddPet }) => {
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>My Pets</Text>
-        <TouchableOpacity style={styles.addBtn} onPress={onAddPet}>
+        <TouchableOpacity
+          style={styles.addBtn}
+          onPress={onAddPet}
+          accessibilityRole="button"
+          accessibilityLabel="Add pet"
+          accessibilityHint="Adds a new pet"
+        >
           <Text style={styles.addBtnText}>+ Add</Text>
         </TouchableOpacity>
       </View>
@@ -89,7 +91,7 @@ const PetListScreen: React.FC<Props> = ({ onSelectPet, onAddPet }) => {
           keyExtractor={(p) => p.id}
           renderItem={renderItem}
           contentContainerStyle={styles.list}
-          ListEmptyComponent={<Text style={styles.empty}>No pets yet. Add one!</Text>}
+          ListEmptyComponent={<Text style={styles.empty} accessibilityLiveRegion="polite">No pets yet. Add one!</Text>}
           onRefresh={load}
           refreshing={loading}
         />

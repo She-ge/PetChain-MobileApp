@@ -18,6 +18,7 @@ export interface Pet {
   dateOfBirth?: string;
   microchipId?: string;
   photoUrl?: string;
+  thumbnailUrl?: string;
   ownerId: string;
   owner?: PetOwnerSummary;
   createdAt: string;
@@ -31,6 +32,7 @@ export interface CreatePetInput {
   dateOfBirth?: string;
   microchipId?: string;
   photoUrl?: string;
+  thumbnailUrl?: string;
   ownerId: string;
 }
 
@@ -41,6 +43,7 @@ export interface UpdatePetInput {
   dateOfBirth?: string;
   microchipId?: string;
   photoUrl?: string;
+  thumbnailUrl?: string;
 }
 
 interface ApiResponse<T> {
@@ -220,9 +223,14 @@ export async function uploadPetPhoto(petId: string): Promise<string | null> {
     if (!imageResult) return null;
 
     const compressed = await compressImage(imageResult.uri);
-    const uploadResult = await uploadToStorage(compressed.uri, petId);
+    const thumbnailUri = await generateThumbnail(imageResult.uri);
     
-    await updatePet(petId, { photoUrl: uploadResult.url });
+    const uploadResult = await uploadToStorage(compressed.uri, petId, thumbnailUri);
+    
+    await updatePet(petId, { 
+      photoUrl: uploadResult.url,
+      thumbnailUrl: uploadResult.thumbnailUrl 
+    });
     
     return uploadResult.url;
   } catch (error) {

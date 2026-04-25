@@ -23,6 +23,7 @@ interface Props {
 const LoginScreen: React.FC<Props> = ({ onSuccess, onRegister, onForgotPassword }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  let passwordRef: TextInput | null = null;
   const [loading, setLoading] = useState(false);
 
   const handleLogin = async () => {
@@ -59,6 +60,9 @@ const LoginScreen: React.FC<Props> = ({ onSuccess, onRegister, onForgotPassword 
           keyboardType="email-address"
           value={email}
           onChangeText={setEmail}
+          accessibilityLabel="Email"
+          returnKeyType="next"
+          onSubmitEditing={() => passwordRef?.focus?.()}
         />
         <TextInput
           style={styles.input}
@@ -67,9 +71,19 @@ const LoginScreen: React.FC<Props> = ({ onSuccess, onRegister, onForgotPassword 
           secureTextEntry
           value={password}
           onChangeText={setPassword}
+          accessibilityLabel="Password"
+          ref={(r) => (passwordRef = r)}
+          returnKeyType="go"
+          onSubmitEditing={() => void handleLogin()}
         />
 
-        <TouchableOpacity onPress={onForgotPassword} style={styles.forgotLink}>
+        <TouchableOpacity
+          onPress={onForgotPassword}
+          style={styles.forgotLink}
+          accessibilityRole="button"
+          accessibilityLabel="Forgot password"
+          accessibilityHint="Opens password recovery flow"
+        >
           <Text style={styles.link}>Forgot password?</Text>
         </TouchableOpacity>
 
@@ -77,6 +91,9 @@ const LoginScreen: React.FC<Props> = ({ onSuccess, onRegister, onForgotPassword 
           style={[styles.btn, loading && styles.btnDisabled]}
           onPress={() => void handleLogin()}
           disabled={loading}
+          accessibilityRole="button"
+          accessibilityLabel="Sign in"
+          accessibilityHint="Signs you into your account"
         >
           {loading ? (
             <ActivityIndicator color="#fff" />
@@ -87,7 +104,7 @@ const LoginScreen: React.FC<Props> = ({ onSuccess, onRegister, onForgotPassword 
 
         <View style={styles.footer}>
           <Text style={styles.footerText}>Don't have an account? </Text>
-          <TouchableOpacity onPress={onRegister}>
+          <TouchableOpacity onPress={onRegister} accessibilityRole="button" accessibilityLabel="Register">
             <Text style={styles.link}>Register</Text>
           </TouchableOpacity>
         </View>

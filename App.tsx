@@ -1,58 +1,17 @@
-import React, { useEffect, useState } from 'react';
-import * as Sentry from '@sentry/react-native';
-import config from './src/config';
-import AuthNavigator from './src/screens/AuthNavigator';
-import PetListScreen from './src/screens/PetListScreen';
-import type { AuthSession } from './src/services/authService';
+import React from 'react';
+import { View, StyleSheet } from 'react-native';
+import { useSplashGuard } from './src/components/SplashGuard';
+import AppNavigator from './src/navigation';
 
-// Initialize Sentry
-Sentry.init({
-  dsn: config.sentry.dsn,
-  enabled: !config.isDev || config.sentry.enableInDev,
-  debug: config.isDev,
-  environment: config.env,
-  // Release tracking and source maps are handled by Expo/Sentry build-time tools
+export default function App() {
+  const { appReady } = useSplashGuard();
+
+  // Render nothing (splash is still visible) until critical init is done
+  if (!appReady) return <View style={styles.root} />;
+
+  return <AppNavigator />;
+}
+
+const styles = StyleSheet.create({
+  root: { flex: 1 },
 });
-
-const App = () => {
-  const [session, setSession] = useState<AuthSession | null>(null);
-
-  useEffect(() => {
-    // Global error handler for unhandled promise rejections or other errors
-    const defaultHandler = ErrorUtils.getGlobalHandler();
-    ErrorUtils.setGlobalHandler((error, isFatal) => {
-      Sentry.captureException(error);
-      defaultHandler(error, isFatal);
-    });
-  }, []);
-
-  if (!session) {
-    return (
-      <AuthNavigator
-        onAuthenticated={(newSession) => {
-          setSession(newSession);
-          // Set user context in Sentry
-          Sentry.setUser({
-            id: newSession.user.id,
-            email: newSession.user.email,
-          });
-        }}
-      />
-    );
-  }
-
-  return (
-    <PetListScreen
-      onSelectPet={(pet) => {
-        console.log('Selected pet:', pet.name);
-        // Navigation logic would go here if using a real navigator
-      }}
-      onAddPet={() => {
-        console.log('Add pet pressed');
-        // Navigation logic would go here
-      }}
-    />
-  );
-};
-
-export default Sentry.wrap(App);

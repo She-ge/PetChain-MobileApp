@@ -1,5 +1,4 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
-
+import { getItem, setItem, removeItem } from './localDB';
 import { savePreferences } from './notificationService';
 import type { NotificationPreferences, User } from '../models/User';
 
@@ -15,7 +14,7 @@ const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
 };
 
 export async function getUserProfile(): Promise<User | null> {
-  const raw = await AsyncStorage.getItem(USER_PROFILE_KEY);
+  const raw = await getItem(USER_PROFILE_KEY);
   return raw ? JSON.parse(raw) : null;
 }
 
@@ -28,7 +27,7 @@ export async function saveUserProfile(profile: User): Promise<User> {
     },
   };
 
-  await AsyncStorage.setItem(USER_PROFILE_KEY, JSON.stringify(normalized));
+  await setItem(USER_PROFILE_KEY, JSON.stringify(normalized));
   await savePreferences(normalized.notificationPreferences ?? {});
   return normalized;
 }
@@ -48,7 +47,7 @@ export async function updateUserProfile(updates: Partial<Omit<User, 'id'>>): Pro
     },
   };
 
-  await AsyncStorage.setItem(USER_PROFILE_KEY, JSON.stringify(updated));
+  await setItem(USER_PROFILE_KEY, JSON.stringify(updated));
   if (updates.notificationPreferences) {
     await savePreferences(updated.notificationPreferences ?? {});
   }
@@ -57,5 +56,5 @@ export async function updateUserProfile(updates: Partial<Omit<User, 'id'>>): Pro
 }
 
 export async function clearUserProfile(): Promise<void> {
-  await AsyncStorage.removeItem(USER_PROFILE_KEY);
+  await removeItem(USER_PROFILE_KEY);
 }
