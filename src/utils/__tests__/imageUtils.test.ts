@@ -1,4 +1,7 @@
-import { pickImage, compressImage, generateThumbnail } from '../imageUtils';
+import { launchImageLibrary } from 'react-native-image-picker';
+import ImageResizer from 'react-native-image-resizer';
+
+import { pickImage, compressImage } from '../imageUtils';
 
 // Mock react-native-image-picker
 jest.mock('react-native-image-picker', () => ({
@@ -7,16 +10,19 @@ jest.mock('react-native-image-picker', () => ({
 
 // Mock react-native-image-resizer
 jest.mock('react-native-image-resizer', () => ({
+  __esModule: true,
   default: {
     createResizedImage: jest.fn(),
   },
 }));
 
+const mockLaunchImageLibrary = launchImageLibrary as jest.Mock;
+const mockCreateResizedImage = ImageResizer.createResizedImage as jest.Mock;
+
 describe('imageUtils', () => {
   describe('pickImage', () => {
     it('should return null when user cancels', async () => {
-      const { launchImageLibrary } = require('react-native-image-picker');
-      launchImageLibrary.mockImplementation((options, callback) => {
+      mockLaunchImageLibrary.mockImplementation((_options, callback) => {
         callback({ didCancel: true });
       });
 
@@ -25,7 +31,6 @@ describe('imageUtils', () => {
     });
 
     it('should return image data when successful', async () => {
-      const { launchImageLibrary } = require('react-native-image-picker');
       const mockAsset = {
         uri: 'file://test.jpg',
         type: 'image/jpeg',
@@ -33,7 +38,7 @@ describe('imageUtils', () => {
         fileSize: 1024,
       };
 
-      launchImageLibrary.mockImplementation((options, callback) => {
+      mockLaunchImageLibrary.mockImplementation((_options, callback) => {
         callback({ assets: [mockAsset] });
       });
 
@@ -49,8 +54,7 @@ describe('imageUtils', () => {
 
   describe('compressImage', () => {
     it('should compress image successfully', async () => {
-      const ImageResizer = require('react-native-image-resizer');
-      ImageResizer.default.createResizedImage.mockResolvedValue({
+      mockCreateResizedImage.mockResolvedValue({
         uri: 'file://compressed.jpg',
         size: 512,
         width: 800,

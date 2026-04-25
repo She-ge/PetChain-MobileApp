@@ -1,4 +1,9 @@
-import axios, { type AxiosInstance, type AxiosRequestConfig, type AxiosResponse } from 'axios';
+import axios, {
+  type AxiosError,
+  type AxiosInstance,
+  type AxiosRequestConfig,
+  type AxiosResponse,
+} from 'axios';
 
 import config from '../config';
 import { setupInterceptors } from '../middleware/apiInterceptors';
@@ -35,14 +40,14 @@ function recordFailure(): void {
 const MAX_RETRIES = 3;
 const BASE_DELAY_MS = 300;
 
-function shouldRetry(error: any, attempt: number): boolean {
+function shouldRetry(error: AxiosError, attempt: number): boolean {
   if (attempt >= MAX_RETRIES) return false;
   if (!error.response) return true; // network error
   return error.response.status >= 500;
 }
 
 const delay = (attempt: number) =>
-  new Promise<void>(resolve => setTimeout(resolve, BASE_DELAY_MS * 2 ** attempt));
+  new Promise<void>((resolve) => setTimeout(resolve, BASE_DELAY_MS * 2 ** attempt));
 
 // --- Axios instance ---
 // Use pinned axios instance when possible. The pinning helper will attempt to
@@ -60,29 +65,29 @@ setupInterceptors(apiClient);
 
 // --- Resilient request wrapper ---
 export async function resilientRequest<T>(
-  requestConfig: AxiosRequestConfig
+  requestConfig: AxiosRequestConfig,
 ): Promise<AxiosResponse<T>> {
   if (isCircuitOpen()) {
     throw new Error('Service temporarily unavailable. Please try again later.');
   }
 
-  let lastError: any;
+  let lastError: AxiosError | undefined;
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     try {
       if (attempt > 0) await delay(attempt - 1);
       const response = await apiClient.request<T>(requestConfig);
       recordSuccess();
       return response;
-    } catch (err: any) {
-      lastError = err;
+    } catch (err) {
+      lastError = err as AxiosError;
       recordFailure();
-      if (!shouldRetry(err, attempt)) break;
+      if (!shouldRetry(lastError, attempt)) break;
     }
   }
 
   const message = lastError?.response
     ? `Request failed with status ${lastError.response.status}`
-    : lastError?.message ?? 'Network error';
+    : (lastError?.message ?? 'Network error');
   throw new Error(message);
 }
 
