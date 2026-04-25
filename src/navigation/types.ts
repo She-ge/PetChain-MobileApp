@@ -1,0 +1,49 @@
+import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
+import type { CompositeScreenProps } from '@react-navigation/native';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+
+import type { Pet } from '../models/Pet';
+
+// ─── Root Stack ───────────────────────────────────────────────────────────────
+export type RootStackParamList = {
+  Onboarding: undefined;
+  Auth: undefined;
+  Main: undefined;
+  // Modals
+  QRScanner: undefined;
+  ManualEntry: undefined;
+};
+
+// ─── Main Tab ─────────────────────────────────────────────────────────────────
+export type MainTabParamList = {
+  PetList: undefined;
+  Medications: undefined;
+  Emergency: undefined;
+  Profile: undefined;
+};
+
+// ─── Pet Stack (nested inside PetList tab) ────────────────────────────────────
+export type PetStackParamList = {
+  PetListScreen: undefined;
+  PetDetail: { petId: string };
+  PetForm: { pet?: Pet; ownerId?: string };
+};
+
+// ─── Screen prop helpers ──────────────────────────────────────────────────────
+export type RootStackScreenProps<T extends keyof RootStackParamList> = NativeStackScreenProps<
+  RootStackParamList,
+  T
+>;
+
+export type MainTabScreenProps<T extends keyof MainTabParamList> = CompositeScreenProps<
+  BottomTabScreenProps<MainTabParamList, T>,
+  NativeStackScreenProps<RootStackParamList>
+>;
+
+export type PetStackScreenProps<T extends keyof PetStackParamList> = CompositeScreenProps<
+  NativeStackScreenProps<PetStackParamList, T>,
+  MainTabScreenProps<'PetList'>
+>;
+
+// ─── Deep link config ─────────────────────────────────────────────────────────
+export const DEEP_LINK_PREFIX = ['petchain://', 'https://petchain.app'];
