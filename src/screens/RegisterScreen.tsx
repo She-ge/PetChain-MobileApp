@@ -24,6 +24,7 @@ const RegisterScreen: React.FC<Props> = ({ onSuccess, onLogin }) => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  let passwordRef: TextInput | null = null;
   const [confirm, setConfirm] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -67,6 +68,8 @@ const RegisterScreen: React.FC<Props> = ({ onSuccess, onLogin }) => {
           placeholderTextColor="#aaa"
           value={name}
           onChangeText={setName}
+          accessibilityLabel="Full name"
+          returnKeyType="next"
         />
         <TextInput
           style={styles.input}
@@ -76,6 +79,8 @@ const RegisterScreen: React.FC<Props> = ({ onSuccess, onLogin }) => {
           keyboardType="email-address"
           value={email}
           onChangeText={setEmail}
+          accessibilityLabel="Email"
+          returnKeyType="next"
         />
         <TextInput
           style={styles.input}
@@ -84,6 +89,9 @@ const RegisterScreen: React.FC<Props> = ({ onSuccess, onLogin }) => {
           secureTextEntry
           value={password}
           onChangeText={setPassword}
+          accessibilityLabel="Password"
+          ref={(r) => (passwordRef = r)}
+          returnKeyType="next"
         />
         <TextInput
           style={styles.input}
@@ -92,12 +100,17 @@ const RegisterScreen: React.FC<Props> = ({ onSuccess, onLogin }) => {
           secureTextEntry
           value={confirm}
           onChangeText={setConfirm}
+          accessibilityLabel="Confirm password"
+          returnKeyType="done"
+          onSubmitEditing={() => void handleRegister()}
         />
 
         <TouchableOpacity
           style={[styles.btn, loading && styles.btnDisabled]}
           onPress={() => void handleRegister()}
           disabled={loading}
+          accessibilityRole="button"
+          accessibilityLabel="Create account"
         >
           {loading ? (
             <ActivityIndicator color="#fff" />
@@ -108,7 +121,7 @@ const RegisterScreen: React.FC<Props> = ({ onSuccess, onLogin }) => {
 
         <View style={styles.footer}>
           <Text style={styles.footerText}>Already have an account? </Text>
-          <TouchableOpacity onPress={onLogin}>
+          <TouchableOpacity onPress={onLogin} accessibilityRole="button" accessibilityLabel="Sign in">
             <Text style={styles.link}>Sign In</Text>
           </TouchableOpacity>
         </View>

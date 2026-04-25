@@ -5,6 +5,7 @@ import ForgotPasswordScreen from './ForgotPasswordScreen';
 import LoginScreen from './LoginScreen';
 import RegisterScreen from './RegisterScreen';
 import type { AuthSession } from '../services/authService';
+import ErrorBoundary from '../components/ErrorBoundary';
 
 type Screen = 'login' | 'register' | 'forgot' | 'verify';
 
@@ -37,18 +38,32 @@ const AuthNavigator: React.FC<Props> = ({ onAuthenticated }) => {
   switch (screen) {
     case 'login':
       return (
-        <LoginScreen
-          onSuccess={handleAuthSuccess}
-          onRegister={() => setScreen('register')}
-          onForgotPassword={() => setScreen('forgot')}
-        />
+        <ErrorBoundary>
+          <LoginScreen
+            onSuccess={handleAuthSuccess}
+            onRegister={() => setScreen('register')}
+            onForgotPassword={() => setScreen('forgot')}
+          />
+        </ErrorBoundary>
       );
     case 'register':
-      return <RegisterScreen onSuccess={handleAuthSuccess} onLogin={() => setScreen('login')} />;
+      return (
+        <ErrorBoundary>
+          <RegisterScreen onSuccess={handleAuthSuccess} onLogin={() => setScreen('login')} />
+        </ErrorBoundary>
+      );
     case 'forgot':
-      return <ForgotPasswordScreen onBack={() => setScreen('login')} />;
+      return (
+        <ErrorBoundary>
+          <ForgotPasswordScreen onBack={() => setScreen('login')} />
+        </ErrorBoundary>
+      );
     case 'verify':
-      return <EmailVerificationScreen onVerified={handleVerified} onSkip={handleSkipVerify} />;
+      return (
+        <ErrorBoundary>
+          <EmailVerificationScreen onVerified={handleVerified} onSkip={handleSkipVerify} />
+        </ErrorBoundary>
+      );
   }
 };
 

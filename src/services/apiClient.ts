@@ -6,7 +6,7 @@ import axios, {
 } from 'axios';
 
 import config from '../config';
-import { getToken } from './authService';
+import { setupInterceptors } from '../middleware/apiInterceptors';
 
 // --- Circuit Breaker ---
 type CircuitState = 'CLOSED' | 'OPEN' | 'HALF_OPEN';
@@ -50,7 +50,9 @@ const delay = (attempt: number) =>
   new Promise<void>((resolve) => setTimeout(resolve, BASE_DELAY_MS * 2 ** attempt));
 
 // --- Axios instance ---
-const apiClient: AxiosInstance = axios.create({
+// Use pinned axios instance when possible. The pinning helper will attempt to
+// provide pins from config and secure storage; it also supports refreshing pins.
+let apiClient: AxiosInstance = axios.create({
   baseURL: config.api.baseUrl,
   timeout: config.api.timeoutMs,
   headers: {
@@ -59,13 +61,7 @@ const apiClient: AxiosInstance = axios.create({
   },
 });
 
-apiClient.interceptors.request.use(async (requestConfig) => {
-  const token = await getToken();
-  if (token) {
-    requestConfig.headers.set('Authorization', `Bearer ${token}`);
-  }
-  return requestConfig;
-});
+setupInterceptors(apiClient);
 
 // --- Resilient request wrapper ---
 export async function resilientRequest<T>(

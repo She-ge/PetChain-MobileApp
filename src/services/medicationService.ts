@@ -1,4 +1,10 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import {
+  getAllMedications,
+  upsertMedication,
+  deleteMedicationById,
+  getDoseLogs as dbGetDoseLogs,
+  addDoseLog as dbAddDoseLog,
+} from './localDB';
 import * as Notifications from 'expo-notifications';
 
 import type { Medication } from '../models/Medication';
@@ -13,36 +19,24 @@ export interface DoseLog {
   notes?: string;
 }
 
-const MEDICATIONS_KEY = '@medications';
-const DOSE_LOGS_KEY = '@dose_logs';
-
 export async function getMedications(): Promise<Medication[]> {
-  const raw = await AsyncStorage.getItem(MEDICATIONS_KEY);
-  return raw ? JSON.parse(raw) : [];
+  return (await getAllMedications()) as Medication[];
 }
 
 export async function saveMedication(med: Medication): Promise<void> {
-  const meds = await getMedications();
-  const idx = meds.findIndex((m) => m.id === med.id);
-  if (idx >= 0) meds[idx] = med;
-  else meds.push(med);
-  await AsyncStorage.setItem(MEDICATIONS_KEY, JSON.stringify(meds));
+  await upsertMedication(med);
 }
 
 export async function deleteMedication(id: string): Promise<void> {
-  const meds = await getMedications();
-  await AsyncStorage.setItem(MEDICATIONS_KEY, JSON.stringify(meds.filter((m) => m.id !== id)));
+  await deleteMedicationById(id);
 }
 
 export async function getDoseLogs(): Promise<DoseLog[]> {
-  const raw = await AsyncStorage.getItem(DOSE_LOGS_KEY);
-  return raw ? JSON.parse(raw) : [];
+  return (await dbGetDoseLogs()) as DoseLog[];
 }
 
 export async function logDose(log: DoseLog): Promise<void> {
-  const logs = await getDoseLogs();
-  logs.push(log);
-  await AsyncStorage.setItem(DOSE_LOGS_KEY, JSON.stringify(logs));
+  await dbAddDoseLog(log);
 }
 
 export function getMedicationEndDate(med: Medication): Date | null {

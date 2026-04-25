@@ -1,4 +1,4 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getItem, setItem, removeItem } from './localDB';
 import * as Notifications from 'expo-notifications';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -81,32 +81,32 @@ export const checkPermissions = async (): Promise<boolean> => {
 // ─── Preferences ─────────────────────────────────────────────────────────────
 
 export const getPreferences = async (): Promise<NotificationPreferences> => {
-  const stored = await AsyncStorage.getItem(PREFS_KEY);
+  const stored = await getItem(PREFS_KEY);
   return stored ? { ...DEFAULT_PREFS, ...JSON.parse(stored) } : DEFAULT_PREFS;
 };
 
 export const savePreferences = async (prefs: Partial<NotificationPreferences>): Promise<void> => {
   const current = await getPreferences();
-  await AsyncStorage.setItem(PREFS_KEY, JSON.stringify({ ...current, ...prefs }));
+  await setItem(PREFS_KEY, JSON.stringify({ ...current, ...prefs }));
 };
 
 // ─── Notification ID map helpers ─────────────────────────────────────────────
 
 const getNotificationMap = async (): Promise<Record<string, string[]>> => {
-  const stored = await AsyncStorage.getItem(NOTIFICATION_MAP_KEY);
+  const stored = await getItem(NOTIFICATION_MAP_KEY);
   return stored ? JSON.parse(stored) : {};
 };
 
 const saveNotificationIds = async (entityId: string, notificationIds: string[]): Promise<void> => {
   const map = await getNotificationMap();
   map[entityId] = notificationIds;
-  await AsyncStorage.setItem(NOTIFICATION_MAP_KEY, JSON.stringify(map));
+  await setItem(NOTIFICATION_MAP_KEY, JSON.stringify(map));
 };
 
 const removeNotificationId = async (entityId: string): Promise<void> => {
   const map = await getNotificationMap();
   delete map[entityId];
-  await AsyncStorage.setItem(NOTIFICATION_MAP_KEY, JSON.stringify(map));
+  await setItem(NOTIFICATION_MAP_KEY, JSON.stringify(map));
 };
 
 // ─── Medication reminders ─────────────────────────────────────────────────────
@@ -270,7 +270,7 @@ export const cancelNotification = async (notificationId: string): Promise<void> 
 
 export const cancelAllNotifications = async (): Promise<void> => {
   await Notifications.cancelAllScheduledNotificationsAsync();
-  await AsyncStorage.removeItem(NOTIFICATION_MAP_KEY);
+  await removeItem(NOTIFICATION_MAP_KEY);
 };
 
 // ─── Grouping helpers ─────────────────────────────────────────────────────────
