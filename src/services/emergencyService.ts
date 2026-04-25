@@ -1,4 +1,4 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getItem, setItem, removeItem } from './localDB';
 import Geolocation from '@react-native-community/geolocation';
 import { Linking, Platform, PermissionsAndroid } from 'react-native';
 
@@ -78,9 +78,9 @@ class EmergencyService {
   // ── Contacts CRUD ────────────────────────────────────────────────────────────
 
   async getEmergencyContacts(): Promise<EmergencyContact[]> {
-    const stored = await AsyncStorage.getItem(CONTACTS_KEY);
+    const stored = await getItem(CONTACTS_KEY);
     if (stored) return JSON.parse(stored);
-    await AsyncStorage.setItem(CONTACTS_KEY, JSON.stringify(DEFAULT_CONTACTS));
+    await setItem(CONTACTS_KEY, JSON.stringify(DEFAULT_CONTACTS));
     return DEFAULT_CONTACTS;
   }
 
@@ -91,7 +91,7 @@ class EmergencyService {
       id: `contact_${Date.now()}_${Math.random().toString(36).slice(2)}`,
     };
     contacts.push(newContact);
-    await AsyncStorage.setItem(CONTACTS_KEY, JSON.stringify(contacts));
+    await setItem(CONTACTS_KEY, JSON.stringify(contacts));
     return newContact;
   }
 
@@ -103,14 +103,14 @@ class EmergencyService {
     const idx = contacts.findIndex((c) => c.id === id);
     if (idx === -1) throw new Error('Contact not found');
     contacts[idx] = { ...contacts[idx], ...updates };
-    await AsyncStorage.setItem(CONTACTS_KEY, JSON.stringify(contacts));
+    await setItem(CONTACTS_KEY, JSON.stringify(contacts));
     return contacts[idx];
   }
 
   async deleteContact(id: string): Promise<void> {
     const contacts = await this.getEmergencyContacts();
     const filtered = contacts.filter((c) => c.id !== id);
-    await AsyncStorage.setItem(CONTACTS_KEY, JSON.stringify(filtered));
+    await setItem(CONTACTS_KEY, JSON.stringify(filtered));
     // Also remove from favorites if present
     await this.removeFavoriteContact(id);
   }
@@ -118,7 +118,7 @@ class EmergencyService {
   // ── Favorites ────────────────────────────────────────────────────────────────
 
   async getFavoriteContacts(): Promise<EmergencyContact[]> {
-    const stored = await AsyncStorage.getItem(FAVORITES_KEY);
+    const stored = await getItem(FAVORITES_KEY);
     return stored ? JSON.parse(stored) : [];
   }
 
@@ -126,16 +126,13 @@ class EmergencyService {
     const favorites = await this.getFavoriteContacts();
     if (!favorites.find((f) => f.id === contact.id)) {
       favorites.push(contact);
-      await AsyncStorage.setItem(FAVORITES_KEY, JSON.stringify(favorites));
+      await setItem(FAVORITES_KEY, JSON.stringify(favorites));
     }
   }
 
   async removeFavoriteContact(contactId: string): Promise<void> {
     const favorites = await this.getFavoriteContacts();
-    await AsyncStorage.setItem(
-      FAVORITES_KEY,
-      JSON.stringify(favorites.filter((f) => f.id !== contactId)),
-    );
+    await setItem(FAVORITES_KEY, JSON.stringify(favorites.filter((f) => f.id !== contactId)));
   }
 
   // ── Location ─────────────────────────────────────────────────────────────────
