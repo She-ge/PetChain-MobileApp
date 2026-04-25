@@ -1,8 +1,17 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { Alert, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useCallback, useEffect, useState } from "react";
+import {
+  Alert,
+  Image,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
-import petService, { type Pet } from '../services/petService';
-import { getPhoto } from '../utils/petPhotoStore';
+import petService, { type Pet } from "../services/petService";
+import { getPhoto } from "../utils/petPhotoStore";
+import { useSecureScreen } from "../utils/secureScreen";
 
 interface Props {
   petId: string;
@@ -11,16 +20,21 @@ interface Props {
 }
 
 const PetDetailScreen: React.FC<Props> = ({ petId, onBack, onEdit }) => {
+  useSecureScreen();
+
   const [pet, setPet] = useState<Pet | null>(null);
   const [photo, setPhoto] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
-      const [data, uri] = await Promise.all([petService.getPetById(petId), getPhoto(petId)]);
+      const [data, uri] = await Promise.all([
+        petService.getPetById(petId),
+        getPhoto(petId),
+      ]);
       setPet(data);
       setPhoto(uri);
     } catch {
-      Alert.alert('Error', 'Failed to load pet details.');
+      Alert.alert("Error", "Failed to load pet details.");
       onBack();
     }
   }, [petId, onBack]);
@@ -30,17 +44,17 @@ const PetDetailScreen: React.FC<Props> = ({ petId, onBack, onEdit }) => {
   }, [load]);
 
   const handleDelete = () => {
-    Alert.alert('Delete Pet', `Remove ${pet?.name}?`, [
-      { text: 'Cancel', style: 'cancel' },
+    Alert.alert("Delete Pet", `Remove ${pet?.name}?`, [
+      { text: "Cancel", style: "cancel" },
       {
-        text: 'Delete',
-        style: 'destructive',
+        text: "Delete",
+        style: "destructive",
         onPress: async () => {
           try {
             await petService.deletePet(petId);
             onBack();
           } catch {
-            Alert.alert('Error', 'Failed to delete pet.');
+            Alert.alert("Error", "Failed to delete pet.");
           }
         },
       },
@@ -50,19 +64,20 @@ const PetDetailScreen: React.FC<Props> = ({ petId, onBack, onEdit }) => {
   if (!pet) return null;
 
   const fields: { label: string; value: string | undefined }[] = [
-    { label: 'Species', value: pet.species },
-    { label: 'Breed', value: pet.breed },
+    { label: "Species", value: pet.species },
+    { label: "Breed", value: pet.breed },
     {
-      label: 'Date of Birth',
-      value: pet.dateOfBirth ? new Date(pet.dateOfBirth).toLocaleDateString() : undefined,
+      label: "Date of Birth",
+      value: pet.dateOfBirth
+        ? new Date(pet.dateOfBirth).toLocaleDateString()
+        : undefined,
     },
-    { label: 'Microchip ID', value: pet.microchipId },
-    { label: 'Added', value: new Date(pet.createdAt).toLocaleDateString() },
+    { label: "Microchip ID", value: pet.microchipId },
+    { label: "Added", value: new Date(pet.createdAt).toLocaleDateString() },
   ];
 
   return (
     <View style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={onBack} style={styles.backBtn} accessibilityRole="button" accessibilityLabel="Back">
           <Text style={styles.backText}>‹ Back</Text>
@@ -74,7 +89,6 @@ const PetDetailScreen: React.FC<Props> = ({ petId, onBack, onEdit }) => {
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
-        {/* Photo */}
         <View style={styles.photoSection}>
           {photo ? (
             <Image source={{ uri: photo }} style={styles.photo} accessible accessibilityLabel={`${pet.name} photo`} />
@@ -86,7 +100,6 @@ const PetDetailScreen: React.FC<Props> = ({ petId, onBack, onEdit }) => {
           <Text style={styles.petName}>{pet.name}</Text>
         </View>
 
-        {/* Details */}
         <View style={styles.detailsCard}>
           {fields
             .filter((f) => f.value)
@@ -107,64 +120,68 @@ const PetDetailScreen: React.FC<Props> = ({ petId, onBack, onEdit }) => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5' },
+  container: { flex: 1, backgroundColor: "#f5f5f5" },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     padding: 16,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    borderBottomColor: "#e0e0e0",
   },
   backBtn: { padding: 4 },
-  backText: { fontSize: 17, color: '#4CAF50' },
-  headerTitle: { fontSize: 17, fontWeight: '700', color: '#1a1a1a' },
+  backText: { fontSize: 17, color: "#4CAF50" },
+  headerTitle: { fontSize: 17, fontWeight: "700", color: "#1a1a1a" },
   editBtn: {
-    backgroundColor: '#e8f5e9',
+    backgroundColor: "#e8f5e9",
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 8,
   },
-  editBtnText: { color: '#4CAF50', fontWeight: '600' },
+  editBtnText: { color: "#4CAF50", fontWeight: "600" },
   content: { padding: 16 },
-  photoSection: { alignItems: 'center', marginBottom: 20 },
+  photoSection: { alignItems: "center", marginBottom: 20 },
   photo: { width: 120, height: 120, borderRadius: 60, marginBottom: 10 },
-  photoPlaceholder: { backgroundColor: '#e8f5e9', justifyContent: 'center', alignItems: 'center' },
+  photoPlaceholder: {
+    backgroundColor: "#e8f5e9",
+    justifyContent: "center",
+    alignItems: "center",
+  },
   photoEmoji: { fontSize: 48 },
-  petName: { fontSize: 22, fontWeight: '700', color: '#1a1a1a' },
+  petName: { fontSize: 22, fontWeight: "700", color: "#1a1a1a" },
   detailsCard: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderRadius: 10,
     padding: 16,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOpacity: 0.06,
     shadowRadius: 4,
     elevation: 2,
     marginBottom: 20,
   },
   row: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    borderBottomColor: "#f0f0f0",
   },
-  rowLabel: { fontSize: 14, color: '#666' },
+  rowLabel: { fontSize: 14, color: "#666" },
   rowValue: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#1a1a1a',
-    maxWidth: '60%',
-    textAlign: 'right',
+    fontWeight: "600",
+    color: "#1a1a1a",
+    maxWidth: "60%",
+    textAlign: "right",
   },
   deleteBtn: {
-    backgroundColor: '#fdecea',
+    backgroundColor: "#fdecea",
     borderRadius: 10,
     padding: 14,
-    alignItems: 'center',
+    alignItems: "center",
   },
-  deleteBtnText: { color: '#e53935', fontWeight: '700', fontSize: 15 },
+  deleteBtnText: { color: "#e53935", fontWeight: "700", fontSize: 15 },
 });
 
 export default PetDetailScreen;
