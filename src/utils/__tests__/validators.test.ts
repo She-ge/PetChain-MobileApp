@@ -11,9 +11,8 @@ describe('isValidEmail', () => {
   it.each(['user@example.com', 'a@b.co', 'user+tag@domain.org'])('valid: %s', (v) => {
     expect(isValidEmail(v)).toBe(true);
   });
-  it.each(['', 'notanemail', '@no-local.com', 'no-at-sign', null, undefined])(
-    'invalid: %s',
-    (v) => expect(isValidEmail(v)).toBe(false)
+  it.each(['', 'notanemail', '@no-local.com', 'no-at-sign', null, undefined])('invalid: %s', (v) =>
+    expect(isValidEmail(v)).toBe(false),
   );
   it('exports an error message', () => expect(typeof ERROR_MESSAGES.email).toBe('string'));
 });

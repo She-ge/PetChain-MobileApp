@@ -51,20 +51,26 @@ export type Species = 'dog' | 'cat' | 'bird' | 'rabbit' | 'other';
 export interface Pet {
   id: string;
   name: string;
-  breed: string;
   species: Species;
-  age: number;
-  weight: number;
-  owner: string;
+  breed?: string;
+  dateOfBirth?: string;
+  microchipId?: string;
+  photoUrl?: string;
+  ownerId: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * Pet with additional details for full profile
+ */
+export interface PetWithDetails extends Pet {
+  age?: number;
+  weight?: number;
+  gender?: 'male' | 'female';
+  color?: string;
   medicalHistory: MedicalHistoryRecord[];
   vaccinations: VaccinationRecord[];
   medications: MedicationRecord[];
-  qrCode: string;
-  dateOfBirth?: string;
-  gender?: 'male' | 'female';
-  color?: string;
-  microchipId?: string;
-  imageUrl?: string;
-  createdAt?: string;
-  updatedAt?: string;
+  qrCode?: string;
 }

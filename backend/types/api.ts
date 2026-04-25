@@ -175,6 +175,7 @@ export interface CreatePetRequest {
   breed?: string;
   dateOfBirth?: string;
   microchipId?: string;
+  photoUrl?: string;
   ownerId: string;
 }
 
@@ -188,6 +189,7 @@ export interface CreatePetResponse {
   breed?: string;
   dateOfBirth?: string;
   microchipId?: string;
+  photoUrl?: string;
   ownerId: string;
   createdAt: string;
   updatedAt: string;
@@ -203,6 +205,7 @@ export interface GetPetResponse {
   breed?: string;
   dateOfBirth?: string;
   microchipId?: string;
+  photoUrl?: string;
   ownerId: string;
   owner?: {
     id: string;
@@ -222,6 +225,7 @@ export interface UpdatePetRequest {
   breed?: string;
   dateOfBirth?: string;
   microchipId?: string;
+  photoUrl?: string;
 }
 
 /**
@@ -298,6 +302,116 @@ export interface ListMedicalRecordsRequest extends PaginationParams {
 }
 
 /**
+ * Blockchain - Store Record Request
+ */
+export interface StoreRecordRequest {
+  recordId: string;
+  hash: string;
+  metadata?: Record<string, unknown>;
+}
+
+/**
+ * Blockchain - Store Record Response
+ */
+export interface StoreRecordResponse {
+  hash: string;
+  txHash: string;
+  successful: boolean;
+  ledger?: number;
+  createdAt?: string;
+  sourceAccount?: string;
+  feeCharged?: string;
+  memo?: string;
+  operationCount?: number;
+}
+
+/**
+ * Blockchain - Verify Record Request
+ */
+export interface VerifyRecordRequest {
+  recordId: string;
+  hash: string;
+}
+
+/**
+ * Blockchain - Verify Record Response
+ */
+export interface VerifyRecordResponse {
+  verified: boolean;
+  onChainHash?: string;
+  recordId: string;
+  ledger?: number;
+  txHash?: string;
+  timestamp?: string;
+}
+
+/**
+ * Blockchain - Retrieve Record Hash Response
+ */
+export interface RetrieveRecordHashResponse {
+  hash: string;
+  txHash: string;
+  timestamp: string;
+  ledger?: number;
+}
+
+/**
+ * Blockchain - Transaction History Request
+ */
+export interface TransactionHistoryRequest {
+  recordId?: string;
+  accountId?: string;
+  limit?: number;
+}
+
+/**
+ * Blockchain - Transaction History Response
+ */
+export interface TransactionHistoryResponse {
+  hash: string;
+  successful: boolean;
+  ledger?: number;
+  createdAt?: string;
+  sourceAccount?: string;
+  feeCharged?: string;
+  memo?: string;
+  operationCount?: number;
+}
+
+/**
+ * Blockchain - Network Info Response
+ */
+export interface NetworkInfoResponse {
+  network: string;
+  horizonUrl: string;
+  passphrase: string;
+  currentLedger: number;
+  latestLedger: number;
+}
+
+/**
+ * Blockchain - Batch Verify Request
+ */
+export interface BatchVerifyRequest {
+  records: Array<{
+    recordId: string;
+    hash: string;
+  }>;
+}
+
+/**
+ * Blockchain - Batch Verify Response
+ */
+export interface BatchVerifyResponse {
+  verified: boolean;
+  onChainHash?: string;
+  recordId: string;
+  ledger?: number;
+  txHash?: string;
+  timestamp?: string;
+}
+
+/**
  * API Endpoint paths
  */
 export const API_ENDPOINTS = {
@@ -333,6 +447,15 @@ export const API_ENDPOINTS = {
   MEDICAL_RECORDS_UPDATE: '/medical-records/:id',
   MEDICAL_RECORDS_DELETE: '/medical-records/:id',
   MEDICAL_RECORDS_BY_PET: '/medical-records/pet/:petId',
+
+  // Blockchain
+  BLOCKCHAIN_RECORDS_VERIFY: '/blockchain/records/verify',
+  BLOCKCHAIN_RECORDS_STORE: '/blockchain/records/store',
+  BLOCKCHAIN_RECORDS_RETRIEVE: '/blockchain/records/:id/hash',
+  BLOCKCHAIN_RECORDS_BATCH_VERIFY: '/blockchain/records/batch-verify',
+  BLOCKCHAIN_TRANSACTIONS_GET: '/blockchain/transactions/:txHash',
+  BLOCKCHAIN_TRANSACTIONS_HISTORY: '/blockchain/transactions/history',
+  BLOCKCHAIN_NETWORK_INFO: '/blockchain/network/info',
 } as const;
 
 /**
@@ -362,7 +485,7 @@ export function isApiError(response: ApiResponse | ApiError): response is ApiErr
  * Type guard to check if response is paginated
  */
 export function isPaginatedResponse<T>(
-  response: ApiResponse<T> | PaginatedResponse<T>
+  response: ApiResponse<T> | PaginatedResponse<T>,
 ): response is PaginatedResponse<T> {
   return 'pagination' in response;
 }

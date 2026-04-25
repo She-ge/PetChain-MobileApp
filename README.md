@@ -50,6 +50,9 @@ Styling: Styled Components or React Native Paper
 
 Testing: Jest and React Native Testing Library
 
+Architecture
+For a detailed visual overview of the system architecture, data flow, and component relationships, see [ARCHITECTURE.md](./ARCHITECTURE.md).
+
 Contributing
 We welcome contributions from the community! If you'd like to contribute, please follow these steps:
 
