@@ -42,6 +42,7 @@
     },
     "collectCoverageFrom": [
       "src/**/*.ts",
+      "backend/**/*.ts",
       "!src/**/__tests__/**",
       "!src/**/__mocks__/**"
     ]
