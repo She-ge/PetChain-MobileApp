@@ -45,7 +45,9 @@ const delay = (attempt: number) =>
   new Promise<void>(resolve => setTimeout(resolve, BASE_DELAY_MS * 2 ** attempt));
 
 // --- Axios instance ---
-const apiClient: AxiosInstance = axios.create({
+// Use pinned axios instance when possible. The pinning helper will attempt to
+// provide pins from config and secure storage; it also supports refreshing pins.
+let apiClient: AxiosInstance = axios.create({
   baseURL: config.api.baseUrl,
   timeout: config.api.timeoutMs,
   headers: {
