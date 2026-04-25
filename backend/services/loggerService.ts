@@ -1,9 +1,12 @@
+import * as Sentry from '@sentry/react-native';
+
 type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
 interface LogConfig {
   enableRemote?: boolean;
   remoteUrl?: string;
   isDevelopment?: boolean;
+  sentryDsn?: string;
 }
 
 class LoggerService {
@@ -28,7 +31,14 @@ class LoggerService {
     return true;
   }
 
-  private async sendToRemote(level: LogLevel, formattedLog: string): Promise<void> {
+  private async sendToRemote(level: LogLevel, formattedLog: string, data?: any): Promise<void> {
+    // Send to Sentry if it's an error or warning
+    if (level === 'error') {
+      Sentry.captureException(data instanceof Error ? data : new Error(formattedLog));
+    } else if (level === 'warn') {
+      Sentry.captureMessage(formattedLog, 'warning');
+    }
+
     if (!this.config.enableRemote || !this.config.remoteUrl) return;
 
     try {
@@ -46,29 +56,28 @@ class LoggerService {
     if (!this.shouldLog('debug')) return;
     const formatted = this.formatLog('debug', message, data);
     console.debug(formatted);
-    this.sendToRemote('debug', formatted);
+    this.sendToRemote('debug', formatted, data);
   }
 
   info(message: string, data?: any): void {
     if (!this.shouldLog('info')) return;
     const formatted = this.formatLog('info', message, data);
     console.info(formatted);
-    this.sendToRemote('info', formatted);
+    this.sendToRemote('info', formatted, data);
   }
 
   warn(message: string, data?: any): void {
     if (!this.shouldLog('warn')) return;
     const formatted = this.formatLog('warn', message, data);
     console.warn(formatted);
-    this.sendToRemote('warn', formatted);
+    this.sendToRemote('warn', formatted, data);
   }
 
   error(message: string, data?: any): void {
     if (!this.shouldLog('error')) return;
     const formatted = this.formatLog('error', message, data);
     console.error(formatted);
-    console.error(formatted);
-    this.sendToRemote('error', formatted);
+    this.sendToRemote('error', formatted, data);
   }
 
   configure(config: Partial<LogConfig>): void {

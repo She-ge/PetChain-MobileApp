@@ -1,4 +1,5 @@
 import { AxiosError } from 'axios';
+import * as Sentry from '@sentry/react-native';
 
 interface ErrorResponse {
   message: string;
@@ -24,6 +25,13 @@ export const errorHandler = (error: unknown): ErrorResponse => {
     error: error instanceof Error ? error.message : error,
     stack: error instanceof Error ? error.stack : undefined,
   });
+
+  // Capture error in Sentry
+  if (error instanceof Error) {
+    Sentry.captureException(error);
+  } else {
+    Sentry.captureMessage(typeof error === 'string' ? error : JSON.stringify(error));
+  }
 
   // Handle Axios errors
   if (error instanceof AxiosError) {

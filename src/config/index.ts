@@ -38,6 +38,10 @@ const config = {
     defaultLimit: Number(env('PAGINATION_LIMIT', '20')),
     maxLimit: 100,
   },
+  sentry: {
+    dsn: env('SENTRY_DSN', ''),
+    enableInDev: env('SENTRY_ENABLE_IN_DEV', 'false') === 'true',
+  },
 } as const;
 
 export type AppConfig = typeof config;

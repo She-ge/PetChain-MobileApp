@@ -18,6 +18,11 @@ function isCircuitOpen(): boolean {
   if (circuit.state === 'OPEN') {
     if (Date.now() - circuit.lastFailureTime >= RECOVERY_TIMEOUT_MS) {
       circuit.state = 'HALF_OPEN';
+      Sentry.addBreadcrumb({
+        category: 'api',
+        message: 'Circuit breaker transitioning to HALF_OPEN',
+        level: 'info',
+      });
       return false;
     }
     return true;
@@ -26,6 +31,13 @@ function isCircuitOpen(): boolean {
 }
 
 function recordSuccess(): void {
+  if (circuit.state !== 'CLOSED') {
+    Sentry.addBreadcrumb({
+      category: 'api',
+      message: 'Circuit breaker CLOSED after success',
+      level: 'info',
+    });
+  }
   circuit.failures = 0;
   circuit.state = 'CLOSED';
 }
@@ -33,7 +45,13 @@ function recordSuccess(): void {
 function recordFailure(): void {
   circuit.failures += 1;
   circuit.lastFailureTime = Date.now();
-  if (circuit.failures >= FAILURE_THRESHOLD) circuit.state = 'OPEN';
+  if (circuit.failures >= FAILURE_THRESHOLD && circuit.state !== 'OPEN') {
+    circuit.state = 'OPEN';
+    Sentry.captureMessage('Circuit breaker OPENED due to multiple failures', {
+      level: 'warning',
+      extra: { failures: circuit.failures },
+    });
+  }
 }
 
 // --- Retry ---
