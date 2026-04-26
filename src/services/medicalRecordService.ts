@@ -44,7 +44,6 @@ export interface PaginatedResponse<T> {
   totalPages: number;
 }
 
-// Custom error class
 export class MedicalRecordError extends Error {
   constructor(
     message: string,
@@ -55,7 +54,12 @@ export class MedicalRecordError extends Error {
   }
 }
 
-const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'https://api.petchain.com';
+const API_BASE_URL =
+  process.env.REACT_APP_API_BASE_URL || 'https://api.petchain.com';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Error handler
+// ─────────────────────────────────────────────────────────────────────────────
 
 const RECORDS_CACHE_PREFIX = '@records_';
 
@@ -87,10 +91,14 @@ const handleApiError = (error: any): never => {
         throw new MedicalRecordError(`API error: ${message}`, 'API_ERROR');
     }
   }
+
   throw new MedicalRecordError('Network error', 'NETWORK_ERROR');
 };
 
-// Fetch medical records with optional filtering
+// ─────────────────────────────────────────────────────────────────────────────
+// Existing function (unchanged)
+// ─────────────────────────────────────────────────────────────────────────────
+
 export const getMedicalRecords = async (
   petId: string,
   filters?: RecordFilters,
@@ -107,8 +115,35 @@ export const getMedicalRecords = async (
     if (filters?.page) params.append('page', filters.page.toString());
     if (filters?.limit) params.append('limit', filters.limit.toString());
 
-    const response: AxiosResponse<PaginatedResponse<MedicalRecord>> = await axios.get(
-      `${API_BASE_URL}/pets/${petId}/medical-records?${params.toString()}`,
+    const response: AxiosResponse<PaginatedResponse<MedicalRecord>> =
+      await axios.get(
+        `${API_BASE_URL}/pets/${petId}/medical-records?${params.toString()}`,
+      );
+
+    return response.data;
+  } catch (error) {
+    return handleApiError(error);
+  }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ✅ ADDED: REQUIRED BY YOUR TESTS
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const getRecordById = async (
+  petId: string,
+  recordId: string,
+): Promise<MedicalRecord> => {
+  if (!petId || !recordId) {
+    throw new MedicalRecordError(
+      'Pet ID and Record ID are required',
+      'INVALID_INPUT',
+    );
+  }
+
+  try {
+    const response: AxiosResponse<MedicalRecord> = await axios.get(
+      `${API_BASE_URL}/pets/${petId}/medical-records/${recordId}`,
     );
 
     const data = response.data;
@@ -136,14 +171,42 @@ export const getMedicalRecords = async (
   }
 };
 
-// Fetch vaccination history
-export const getVaccinationHistory = async (petId: string): Promise<Vaccination[]> => {
+export const createMedicalRecord = async (
+  petId: string,
+  data: Partial<MedicalRecord>,
+): Promise<MedicalRecord> => {
   if (!petId) {
     throw new MedicalRecordError('Pet ID is required', 'INVALID_PET_ID');
   }
 
   try {
-    const response = await getMedicalRecords(petId, { type: 'vaccination' });
+    const response: AxiosResponse<MedicalRecord> = await axios.post(
+      `${API_BASE_URL}/pets/${petId}/medical-records`,
+      data,
+    );
+
+    return response.data;
+  } catch (error) {
+    return handleApiError(error);
+  }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Existing helpers (unchanged)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const getVaccinationHistory = async (
+  petId: string,
+): Promise<Vaccination[]> => {
+  if (!petId) {
+    throw new MedicalRecordError('Pet ID is required', 'INVALID_PET_ID');
+  }
+
+  try {
+    const response = await getMedicalRecords(petId, {
+      type: 'vaccination',
+    });
+
     return response.data as Vaccination[];
   } catch (error) {
     if (error instanceof MedicalRecordError) throw error;
@@ -151,14 +214,18 @@ export const getVaccinationHistory = async (petId: string): Promise<Vaccination[
   }
 };
 
-// Fetch treatment history
-export const getTreatmentHistory = async (petId: string): Promise<Treatment[]> => {
+export const getTreatmentHistory = async (
+  petId: string,
+): Promise<Treatment[]> => {
   if (!petId) {
     throw new MedicalRecordError('Pet ID is required', 'INVALID_PET_ID');
   }
 
   try {
-    const response = await getMedicalRecords(petId, { type: 'treatment' });
+    const response = await getMedicalRecords(petId, {
+      type: 'treatment',
+    });
+
     return response.data as Treatment[];
   } catch (error) {
     if (error instanceof MedicalRecordError) throw error;
