@@ -5,6 +5,8 @@ import {
   verifyMedicalRecordOnChain,
   type MedicalRecordWithChainData,
 } from './blockchainService';
+import { getItem, setItem } from './localDB';
+import offlineQueue from './offlineQueue';
 
 // Types
 export interface MedicalRecord {
@@ -48,7 +50,6 @@ export interface PaginatedResponse<T> {
   totalPages: number;
 }
 
-// Custom error class
 export class MedicalRecordError extends Error {
   constructor(
     message: string,
@@ -60,6 +61,21 @@ export class MedicalRecordError extends Error {
 }
 
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'https://api.petchain.com';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Error handler
+// ─────────────────────────────────────────────────────────────────────────────
+
+const RECORDS_CACHE_PREFIX = '@records_';
+
+async function cacheRecords(petId: string, records: MedicalRecord[]): Promise<void> {
+  await setItem(`${RECORDS_CACHE_PREFIX}${petId}`, JSON.stringify(records));
+}
+
+async function getCachedRecords(petId: string): Promise<MedicalRecord[]> {
+  const cached = await getItem(`${RECORDS_CACHE_PREFIX}${petId}`);
+  return cached ? JSON.parse(cached) : [];
+}
 
 // Helper function to handle API errors
 const handleApiError = (error: any): never => {
@@ -80,12 +96,9 @@ const handleApiError = (error: any): never => {
         throw new MedicalRecordError(`API error: ${message}`, 'API_ERROR');
     }
   }
+
   throw new MedicalRecordError('Network error', 'NETWORK_ERROR');
 };
-
-// =======================
-// 📥 FETCH FUNCTIONS
-// =======================
 
 export const getMedicalRecords = async (
   petId: string,
@@ -113,13 +126,35 @@ export const getMedicalRecords = async (
   }
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// ✅ ADDED: REQUIRED BY YOUR TESTS
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const getRecordById = async (petId: string, recordId: string): Promise<MedicalRecord> => {
+  if (!petId || !recordId) {
+    throw new MedicalRecordError('Pet ID and Record ID are required', 'INVALID_INPUT');
+  }
+
+  try {
+    const response: AxiosResponse<MedicalRecord> = await axios.get(
+      `${API_BASE_URL}/pets/${petId}/medical-records/${recordId}`,
+    );
+    return response.data;
+  } catch (error) {
+    return handleApiError(error);
+  }
+};
+
 export const getVaccinationHistory = async (petId: string): Promise<Vaccination[]> => {
   if (!petId) {
     throw new MedicalRecordError('Pet ID is required', 'INVALID_PET_ID');
   }
 
   try {
-    const response = await getMedicalRecords(petId, { type: 'vaccination' });
+    const response = await getMedicalRecords(petId, {
+      type: 'vaccination',
+    });
+
     return response.data as Vaccination[];
   } catch (error) {
     if (error instanceof MedicalRecordError) throw error;
@@ -133,7 +168,10 @@ export const getTreatmentHistory = async (petId: string): Promise<Treatment[]> =
   }
 
   try {
-    const response = await getMedicalRecords(petId, { type: 'treatment' });
+    const response = await getMedicalRecords(petId, {
+      type: 'treatment',
+    });
+
     return response.data as Treatment[];
   } catch (error) {
     if (error instanceof MedicalRecordError) throw error;
@@ -142,46 +180,10 @@ export const getTreatmentHistory = async (petId: string): Promise<Treatment[]> =
 };
 
 // =======================
-// 🆕 CREATE + BLOCKCHAIN
-// =======================
-
-export const createMedicalRecord = async (
-  petId: string,
-  recordData: Omit<MedicalRecord, 'id' | 'createdAt' | 'petId'>,
-): Promise<MedicalRecord> => {
-  if (!petId) {
-    throw new MedicalRecordError('Pet ID is required', 'INVALID_PET_ID');
-  }
-
-  try {
-    // Save to backend first
-    const response: AxiosResponse<MedicalRecord> = await axios.post(
-      `${API_BASE_URL}/pets/${petId}/medical-records`,
-      recordData,
-    );
-
-    const record = response.data;
-
-    // Then best-effort blockchain write
-    try {
-      await storeMedicalRecordOnChain(record as MedicalRecordWithChainData);
-    } catch (blockchainError) {
-      console.error('Blockchain storage failed:', blockchainError);
-    }
-
-    return record;
-  } catch (error) {
-    return handleApiError(error);
-  }
-};
-
-// =======================
 // 🔍 VERIFICATION
 // =======================
 
-export const verifyMedicalRecord = async (
-  record: MedicalRecord,
-) => {
+export const verifyMedicalRecord = async (record: MedicalRecord) => {
   try {
     return await verifyMedicalRecordOnChain(record as MedicalRecordWithChainData);
   } catch (error) {
@@ -213,4 +215,116 @@ export const searchMedicalRecords = async (
   const { data } = await getMedicalRecords(petId, { limit: 1000 });
   const q = query.trim().toLowerCase();
   return data.filter((record) => extractSearchableText(record).includes(q));
+};
+
+export const createMedicalRecord = async (
+  petId: string,
+  data: Partial<MedicalRecord>,
+): Promise<MedicalRecord> => {
+  if (!petId) throw new MedicalRecordError('Pet ID is required', 'INVALID_PET_ID');
+
+  try {
+    const response = await axios.post(`${API_BASE_URL}/pets/${petId}/medical-records`, data);
+    const newRecord = response.data;
+
+    // Update cache
+    const cached = await getCachedRecords(petId);
+    cached.unshift(newRecord);
+    await cacheRecords(petId, cached);
+
+    // Best-effort blockchain write (do not block UX)
+    try {
+      await storeMedicalRecordOnChain(newRecord as MedicalRecordWithChainData);
+    } catch (blockchainError) {
+      console.error('Blockchain storage failed:', blockchainError);
+    }
+
+    return newRecord;
+  } catch (error) {
+    if (axios.isAxiosError(error) && !error.response) {
+      const tempId = `temp_${Date.now()}`;
+      const newRecord: MedicalRecord = {
+        ...data,
+        id: tempId,
+        petId,
+        createdAt: new Date().toISOString(),
+      } as MedicalRecord;
+
+      await offlineQueue.enqueue('medicalRecord', 'create', newRecord as any);
+
+      const cached = await getCachedRecords(petId);
+      cached.unshift(newRecord);
+      await cacheRecords(petId, cached);
+
+      return newRecord;
+    }
+    return handleApiError(error);
+  }
+};
+
+export const updateMedicalRecord = async (
+  petId: string,
+  recordId: string,
+  data: Partial<MedicalRecord>,
+): Promise<MedicalRecord> => {
+  if (!petId) throw new MedicalRecordError('Pet ID is required', 'INVALID_PET_ID');
+  if (!recordId) throw new MedicalRecordError('Record ID is required', 'INVALID_RECORD_ID');
+
+  try {
+    const response = await axios.put(
+      `${API_BASE_URL}/pets/${petId}/medical-records/${recordId}`,
+      data,
+    );
+    const updatedRecord = response.data;
+
+    // Update cache
+    const cached = await getCachedRecords(petId);
+    const idx = cached.findIndex((r) => r.id === recordId);
+    if (idx >= 0) {
+      cached[idx] = updatedRecord;
+      await cacheRecords(petId, cached);
+    }
+
+    return updatedRecord;
+  } catch (error) {
+    if (axios.isAxiosError(error) && !error.response) {
+      const cached = await getCachedRecords(petId);
+      const idx = cached.findIndex((r) => r.id === recordId);
+      if (idx >= 0) {
+        const updatedRecord = { ...cached[idx], ...data };
+        await offlineQueue.enqueue('medicalRecord', 'update', { id: recordId, petId, ...data });
+        cached[idx] = updatedRecord;
+        await cacheRecords(petId, cached);
+        return updatedRecord;
+      }
+    }
+    return handleApiError(error);
+  }
+};
+
+export const deleteMedicalRecord = async (petId: string, recordId: string): Promise<void> => {
+  if (!petId) throw new MedicalRecordError('Pet ID is required', 'INVALID_PET_ID');
+  if (!recordId) throw new MedicalRecordError('Record ID is required', 'INVALID_RECORD_ID');
+
+  try {
+    await axios.delete(`${API_BASE_URL}/pets/${petId}/medical-records/${recordId}`);
+
+    // Update cache
+    const cached = await getCachedRecords(petId);
+    await cacheRecords(
+      petId,
+      cached.filter((r) => r.id !== recordId),
+    );
+  } catch (error) {
+    if (axios.isAxiosError(error) && !error.response) {
+      await offlineQueue.enqueue('medicalRecord', 'delete', { id: recordId, petId });
+      const cached = await getCachedRecords(petId);
+      await cacheRecords(
+        petId,
+        cached.filter((r) => r.id !== recordId),
+      );
+      return;
+    }
+    return handleApiError(error);
+  }
 };

@@ -1,6 +1,6 @@
 import { startNetworkMonitoring } from './networkMonitor';
-import { requestPermissions } from '../services/notificationService';
 import { runMigrations } from '../migrations/migrationRunner';
+import { requestPermissions } from '../services/notificationService';
 
 export interface InitResult {
   ready: boolean;
@@ -29,7 +29,9 @@ async function runCriticalInit(): Promise<void> {
  */
 async function runDeferredInit(): Promise<void> {
   const tasks: Array<() => Promise<void>> = [
-    async () => { await requestPermissions(); },
+    async () => {
+      await requestPermissions();
+    },
   ];
 
   // Fire all deferred tasks in parallel, swallow individual failures

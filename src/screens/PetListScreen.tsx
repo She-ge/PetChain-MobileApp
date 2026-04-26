@@ -9,8 +9,9 @@ import {
   View,
 } from 'react-native';
 
-import petService, { type Pet } from '../services/petService';
+import { HeaderOfflineStatus, useOfflineStatus } from '../components/OfflineIndicator';
 import { OptimizedImage } from '../components/OptimizedImage';
+import petService, { type Pet } from '../services/petService';
 
 interface Props {
   onSelectPet: (pet: Pet) => void;
@@ -20,6 +21,7 @@ interface Props {
 const PetListScreen: React.FC<Props> = ({ onSelectPet, onAddPet }) => {
   const [pets, setPets] = useState<Pet[]>([]);
   const [loading, setLoading] = useState(false);
+  const offlineStatus = useOfflineStatus();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -45,8 +47,12 @@ const PetListScreen: React.FC<Props> = ({ onSelectPet, onAddPet }) => {
       accessibilityLabel={`${item.name}, ${item.species}`}
       accessibilityHint="Opens pet details"
     >
-      {photos[item.id] ? (
-        <Image source={{ uri: photos[item.id] }} style={styles.avatar} accessible accessibilityLabel={`${item.name} photo`} />
+      {item.photoUrl || item.thumbnailUrl ? (
+        <OptimizedImage
+          uri={item.thumbnailUrl || item.photoUrl || ''}
+          style={styles.avatar}
+          accessibilityLabel={`${item.name} photo`}
+        />
       ) : (
         <View style={[styles.avatar, styles.avatarPlaceholder]}>
           <Text style={styles.avatarEmoji}>🐾</Text>
@@ -63,6 +69,7 @@ const PetListScreen: React.FC<Props> = ({ onSelectPet, onAddPet }) => {
             Born: {new Date(item.dateOfBirth).toLocaleDateString()}
           </Text>
         )}
+        {!offlineStatus?.isOnline ? <Text style={styles.cachedChip}>Cached</Text> : null}
       </View>
       <Text style={styles.chevron}>›</Text>
     </TouchableOpacity>
@@ -71,7 +78,10 @@ const PetListScreen: React.FC<Props> = ({ onSelectPet, onAddPet }) => {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>My Pets</Text>
+        <View style={styles.titleRow}>
+          <Text style={styles.title}>My Pets</Text>
+          <HeaderOfflineStatus />
+        </View>
         <TouchableOpacity
           style={styles.addBtn}
           onPress={onAddPet}
@@ -82,6 +92,11 @@ const PetListScreen: React.FC<Props> = ({ onSelectPet, onAddPet }) => {
           <Text style={styles.addBtnText}>+ Add</Text>
         </TouchableOpacity>
       </View>
+      {!offlineStatus?.isOnline ? (
+        <View style={styles.cachedBanner}>
+          <Text style={styles.cachedBannerText}>Showing cached pets while offline.</Text>
+        </View>
+      ) : null}
 
       {loading ? (
         <ActivityIndicator style={styles.loader} size="large" color="#4CAF50" />
@@ -91,7 +106,11 @@ const PetListScreen: React.FC<Props> = ({ onSelectPet, onAddPet }) => {
           keyExtractor={(p) => p.id}
           renderItem={renderItem}
           contentContainerStyle={styles.list}
-          ListEmptyComponent={<Text style={styles.empty} accessibilityLiveRegion="polite">No pets yet. Add one!</Text>}
+          ListEmptyComponent={
+            <Text style={styles.empty} accessibilityLiveRegion="polite">
+              No pets yet. Add one!
+            </Text>
+          }
           onRefresh={load}
           refreshing={loading}
         />
@@ -112,6 +131,7 @@ const styles = StyleSheet.create({
     borderBottomColor: '#e0e0e0',
   },
   title: { fontSize: 20, fontWeight: '700', color: '#1a1a1a' },
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   addBtn: {
     backgroundColor: '#4CAF50',
     paddingHorizontal: 14,
@@ -121,6 +141,14 @@ const styles = StyleSheet.create({
   addBtnText: { color: '#fff', fontWeight: '600' },
   loader: { marginTop: 40 },
   list: { padding: 12 },
+  cachedBanner: {
+    backgroundColor: '#fff3e0',
+    borderBottomWidth: 1,
+    borderBottomColor: '#ffe0b2',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  cachedBannerText: { color: '#a54900', fontSize: 12, fontWeight: '600' },
   card: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -139,6 +167,19 @@ const styles = StyleSheet.create({
   cardInfo: { flex: 1 },
   petName: { fontSize: 16, fontWeight: '700', color: '#1a1a1a' },
   petMeta: { fontSize: 13, color: '#666', marginTop: 2 },
+  cachedChip: {
+    alignSelf: 'flex-start',
+    marginTop: 6,
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#a54900',
+    backgroundColor: '#fff3e0',
+    borderColor: '#ed6c02',
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+  },
   chevron: { fontSize: 22, color: '#bbb' },
   empty: { textAlign: 'center', color: '#999', marginTop: 40, fontSize: 15 },
 });
