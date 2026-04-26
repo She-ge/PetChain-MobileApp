@@ -6,6 +6,7 @@ import React from 'react';
 import type { RootStackParamList, MainTabParamList, PetStackParamList } from './types';
 import { DEEP_LINK_PREFIX } from './types';
 import type { Pet } from '../models/Pet';
+import DeleteAccountScreen from '../screens/DeleteAccountScreen';
 import NotificationPreferencesScreen from '../screens/NotificationPreferencesScreen';
 import MedicalRecordShareScreen from '../screens/MedicalRecordShareScreen';
 import AuthNavigator from '../screens/AuthNavigator';
@@ -66,6 +67,14 @@ function PetNavigator() {
       <PetStack.Screen name="NotificationPreferences" options={{ title: 'Notification Preferences' }}>
         {({ navigation }) => (
           <NotificationPreferencesScreen onBack={() => navigation.goBack()} />
+        )}
+      </PetStack.Screen>
+      <PetStack.Screen name="DeleteAccount" options={{ title: 'Delete Account' }}>
+        {({ navigation }) => (
+          <DeleteAccountScreen
+            onBack={() => navigation.goBack()}
+            onDeleted={() => navigation.getParent()?.getParent()?.reset({ index: 0, routes: [{ name: 'Auth' }] })}
+          />
         )}
       </PetStack.Screen>
     </PetStack.Navigator>
