@@ -1,5 +1,7 @@
 import { getItem, setItem, removeItem } from './localDB';
-import { savePreferences } from './notificationService';
+import { savePreferences, cancelAllNotifications } from './notificationService';
+import apiClient from './apiClient';
+import { clearSecureTokens } from '../utils/encryption/keychain';
 import type { NotificationPreferences, User } from '../models/User';
 
 const USER_PROFILE_KEY = '@user_profile';
@@ -57,4 +59,19 @@ export async function updateUserProfile(updates: Partial<Omit<User, 'id'>>): Pro
 
 export async function clearUserProfile(): Promise<void> {
   await removeItem(USER_PROFILE_KEY);
+}
+
+// Delete account: server-side deletion + full local cascade
+export async function deleteAccount(): Promise<void> {
+  // 1. Server-side: delete user + all associated data (pets, records, medications, appointments)
+  await apiClient.delete('/users/me');
+
+  // 2. Cancel all scheduled notifications
+  await cancelAllNotifications();
+
+  // 3. Clear local profile
+  await removeItem(USER_PROFILE_KEY);
+
+  // 4. Clear secure tokens (ends session)
+  await clearSecureTokens();
 }

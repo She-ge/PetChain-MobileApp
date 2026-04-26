@@ -32,6 +32,10 @@ async function init(): Promise<void> {
   await executeSql(
     `CREATE TABLE IF NOT EXISTS dose_logs (id TEXT PRIMARY KEY NOT NULL, medication_id TEXT, taken_at TEXT, skipped INTEGER, notes TEXT, data TEXT NOT NULL)`,
   );
+
+  await executeSql(
+    `CREATE TABLE IF NOT EXISTS health_metrics (id TEXT PRIMARY KEY NOT NULL, pet_id TEXT NOT NULL, recorded_at TEXT NOT NULL, data TEXT NOT NULL)`,
+  );
 }
 
 // Initialize DB on module import
@@ -122,6 +126,35 @@ export async function addDoseLog(log: any): Promise<void> {
   );
 }
 
+export async function getHealthMetricsByPetId(petId: string): Promise<any[]> {
+  const res = await executeSql(
+    `SELECT data FROM health_metrics WHERE pet_id = ? ORDER BY recorded_at ASC`,
+    [petId],
+  );
+  const out: any[] = [];
+  for (let i = 0; i < res.rows.length; i++) {
+    try {
+      out.push(JSON.parse(res.rows.item(i).data));
+    } catch {
+      // ignore
+    }
+  }
+  return out;
+}
+
+export async function upsertHealthMetric(entry: { id: string; petId: string; recordedAt: string; [k: string]: unknown }): Promise<void> {
+  await executeSql(`INSERT OR REPLACE INTO health_metrics (id, pet_id, recorded_at, data) VALUES (?, ?, ?, ?)`, [
+    entry.id,
+    entry.petId,
+    entry.recordedAt,
+    JSON.stringify(entry),
+  ]);
+}
+
+export async function deleteHealthMetricById(id: string): Promise<void> {
+  await executeSql(`DELETE FROM health_metrics WHERE id = ?`, [id]);
+}
+
 export default {
   getItem,
   setItem,
@@ -133,4 +166,7 @@ export default {
   deleteMedicationById,
   getDoseLogs,
   addDoseLog,
+  getHealthMetricsByPetId,
+  upsertHealthMetric,
+  deleteHealthMetricById,
 };

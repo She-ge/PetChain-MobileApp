@@ -17,9 +17,10 @@ interface Props {
   petId: string;
   onBack: () => void;
   onEdit: (pet: Pet) => void;
+  onHealthMetrics: (petId: string, petName: string) => void;
 }
 
-const PetDetailScreen: React.FC<Props> = ({ petId, onBack, onEdit }) => {
+const PetDetailScreen: React.FC<Props> = ({ petId, onBack, onEdit, onHealthMetrics }) => {
   useSecureScreen();
 
   const [pet, setPet] = useState<Pet | null>(null);
@@ -109,6 +110,16 @@ const PetDetailScreen: React.FC<Props> = ({ petId, onBack, onEdit }) => {
             ))}
         </View>
 
+        <TouchableOpacity
+          style={styles.healthBtn}
+          onPress={() => onHealthMetrics(petId, pet.name)}
+          accessibilityRole="button"
+          accessibilityLabel="Health metrics"
+          accessibilityHint="Track weight, temperature, and activity over time"
+        >
+          <Text style={styles.healthBtnText}>Health metrics</Text>
+        </TouchableOpacity>
+
         <TouchableOpacity style={styles.deleteBtn} onPress={handleDelete} accessibilityRole="button" accessibilityLabel="Delete pet" accessibilityHint={`Deletes ${pet.name}`}>
           <Text style={styles.deleteBtnText}>Delete Pet</Text>
         </TouchableOpacity>
@@ -173,6 +184,14 @@ const styles = StyleSheet.create({
     maxWidth: "60%",
     textAlign: "right",
   },
+  healthBtn: {
+    backgroundColor: "#e3f2fd",
+    borderRadius: 10,
+    padding: 14,
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  healthBtnText: { color: "#1565c0", fontWeight: "700", fontSize: 15 },
   deleteBtn: {
     backgroundColor: "#fdecea",
     borderRadius: 10,
