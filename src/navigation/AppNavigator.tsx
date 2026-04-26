@@ -61,6 +61,11 @@ function PetNavigator() {
           />
         )}
       </PetStack.Screen>
+      <PetStack.Screen name="NotificationPreferences" options={{ title: 'Notification Preferences' }}>
+        {({ navigation }) => (
+          <NotificationPreferencesScreen onBack={() => navigation.goBack()} />
+        )}
+      </PetStack.Screen>
     </PetStack.Navigator>
   );
 }
