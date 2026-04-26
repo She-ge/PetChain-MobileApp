@@ -1,8 +1,8 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getItem, setItem, removeItem } from '../localDB';
 import { getUserProfile, saveUserProfile, updateUserProfile, clearUserProfile } from '../userService';
 import { savePreferences } from '../notificationService';
 
-jest.mock('@react-native-async-storage/async-storage', () => ({
+jest.mock('../localDB', () => ({
   getItem: jest.fn(),
   setItem: jest.fn(),
   removeItem: jest.fn(),
@@ -34,7 +34,7 @@ describe('userService', () => {
 
   describe('getUserProfile', () => {
     it('should return parsed user profile if it exists', async () => {
-      (AsyncStorage.getItem as jest.Mock).mockResolvedValue(JSON.stringify(mockUser));
+      (getItem as jest.Mock).mockResolvedValue(JSON.stringify(mockUser));
       const profile = await getUserProfile();
       expect(profile).toEqual(mockUser);
     });
@@ -51,7 +51,7 @@ describe('userService', () => {
       const userToSave = { id: 'user-123', email: 'test@example.com' };
       const savedUser = await saveUserProfile(userToSave as any);
 
-      expect(AsyncStorage.setItem).toHaveBeenCalledWith(
+      expect(setItem).toHaveBeenCalledWith(
         '@user_profile',
         expect.stringContaining('"email":"test@example.com"')
       );
@@ -91,7 +91,7 @@ describe('userService', () => {
   describe('clearUserProfile', () => {
     it('should remove profile from AsyncStorage', async () => {
       await clearUserProfile();
-      expect(AsyncStorage.removeItem).toHaveBeenCalledWith('@user_profile');
+      expect(removeItem).toHaveBeenCalledWith('@user_profile');
     });
   });
 });

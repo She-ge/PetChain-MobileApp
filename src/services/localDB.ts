@@ -1,6 +1,32 @@
 import * as SQLite from 'expo-sqlite';
+import { encrypt, decrypt } from '../utils/encryption';
 
 const db = SQLite.openDatabase('petchain.db');
+
+/**
+ * Helper to safely decrypt data, falling back to original data if decryption fails.
+ * This handles transition from unencrypted to encrypted data.
+ */
+async function safeDecrypt<T = string>(
+  data: string,
+  purpose: string,
+  parseJson: boolean = false
+): Promise<T> {
+  try {
+    return await decrypt<T>(data, purpose, parseJson);
+  } catch (error) {
+    // If decryption fails, it might be unencrypted legacy data
+    if (parseJson) {
+      try {
+        return JSON.parse(data) as T;
+      } catch {
+        // Not JSON either, return as is if T is string
+        return data as unknown as T;
+      }
+    }
+    return data as unknown as T;
+  }
+}
 
 function executeSql(sql: string, params: any[] = []): Promise<SQLite.SQLResultSet> {
   return new Promise((resolve, reject) => {
@@ -45,11 +71,13 @@ init().catch(() => {});
 export async function getItem(key: string): Promise<string | null> {
   const res = await executeSql(`SELECT value FROM kv_store WHERE key = ? LIMIT 1`, [key]);
   if (res.rows.length === 0) return null;
-  return res.rows.item(0).value as string;
+  const value = res.rows.item(0).value as string;
+  return await safeDecrypt(value, `localdb_kv_${key}`);
 }
 
 export async function setItem(key: string, value: string): Promise<void> {
-  await executeSql(`INSERT OR REPLACE INTO kv_store (key, value) VALUES (?, ?)`, [key, value]);
+  const encryptedValue = await encrypt(value, `localdb_kv_${key}`);
+  await executeSql(`INSERT OR REPLACE INTO kv_store (key, value) VALUES (?, ?)`, [key, encryptedValue]);
 }
 
 export async function removeItem(key: string): Promise<void> {
@@ -65,14 +93,27 @@ export async function multiGet(keys: string[]): Promise<Array<[string, string | 
     const row = res.rows.item(i);
     map[row.key] = row.value;
   }
-  return keys.map((k) => [k, map[k] ?? null]);
+  
+  return await Promise.all(
+    keys.map(async (k) => {
+      const val = map[k];
+      return [k, val ? await safeDecrypt(val, `localdb_kv_${k}`) : null] as [string, string | null];
+    })
+  );
 }
 
 export async function multiSet(items: Array<[string, string]>): Promise<void> {
+  const encryptedItems = await Promise.all(
+    items.map(async ([k, v]) => {
+      const encryptedValue = await encrypt(v, `localdb_kv_${k}`);
+      return [k, encryptedValue] as [string, string];
+    })
+  );
+
   await new Promise<void>((resolve, reject) => {
     db.transaction((tx) => {
       try {
-        for (const [k, v] of items) {
+        for (const [k, v] of encryptedItems) {
           tx.executeSql(`INSERT OR REPLACE INTO kv_store (key, value) VALUES (?, ?)`, [k, v]);
         }
         resolve();
@@ -89,7 +130,8 @@ export async function getAllMedications(): Promise<any[]> {
   const out: any[] = [];
   for (let i = 0; i < res.rows.length; i++) {
     try {
-      out.push(JSON.parse(res.rows.item(i).data));
+      const decrypted = await safeDecrypt(res.rows.item(i).data, 'localdb_medications', true);
+      out.push(decrypted);
     } catch {
       // ignore bad rows
     }
@@ -98,7 +140,8 @@ export async function getAllMedications(): Promise<any[]> {
 }
 
 export async function upsertMedication(med: any): Promise<void> {
-  await executeSql(`INSERT OR REPLACE INTO medications (id, data) VALUES (?, ?)`, [med.id, JSON.stringify(med)]);
+  const encryptedData = await encrypt(med, 'localdb_medications');
+  await executeSql(`INSERT OR REPLACE INTO medications (id, data) VALUES (?, ?)`, [med.id, encryptedData]);
 }
 
 export async function deleteMedicationById(id: string): Promise<void> {
@@ -111,7 +154,8 @@ export async function getDoseLogs(): Promise<any[]> {
   const out: any[] = [];
   for (let i = 0; i < res.rows.length; i++) {
     try {
-      out.push(JSON.parse(res.rows.item(i).data));
+      const decrypted = await safeDecrypt(res.rows.item(i).data, 'localdb_dose_logs', true);
+      out.push(decrypted);
     } catch {
       // ignore
     }
@@ -120,9 +164,10 @@ export async function getDoseLogs(): Promise<any[]> {
 }
 
 export async function addDoseLog(log: any): Promise<void> {
+  const encryptedData = await encrypt(log, 'localdb_dose_logs');
   await executeSql(
     `INSERT OR REPLACE INTO dose_logs (id, medication_id, taken_at, skipped, notes, data) VALUES (?, ?, ?, ?, ?, ?)`,
-    [log.id, log.medicationId ?? null, log.takenAt ?? null, log.skipped ? 1 : 0, log.notes ?? null, JSON.stringify(log)],
+    [log.id, log.medicationId ?? null, log.takenAt ?? null, log.skipped ? 1 : 0, log.notes ?? null, encryptedData],
   );
 }
 
@@ -134,7 +179,8 @@ export async function getHealthMetricsByPetId(petId: string): Promise<any[]> {
   const out: any[] = [];
   for (let i = 0; i < res.rows.length; i++) {
     try {
-      out.push(JSON.parse(res.rows.item(i).data));
+      const decrypted = await safeDecrypt(res.rows.item(i).data, 'localdb_health_metrics', true);
+      out.push(decrypted);
     } catch {
       // ignore
     }
@@ -143,11 +189,12 @@ export async function getHealthMetricsByPetId(petId: string): Promise<any[]> {
 }
 
 export async function upsertHealthMetric(entry: { id: string; petId: string; recordedAt: string; [k: string]: unknown }): Promise<void> {
+  const encryptedData = await encrypt(entry, 'localdb_health_metrics');
   await executeSql(`INSERT OR REPLACE INTO health_metrics (id, pet_id, recorded_at, data) VALUES (?, ?, ?, ?)`, [
     entry.id,
     entry.petId,
     entry.recordedAt,
-    JSON.stringify(entry),
+    encryptedData,
   ]);
 }
 
