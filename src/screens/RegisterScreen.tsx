@@ -14,6 +14,7 @@ import {
 
 import { register } from '../services/authService';
 import type { AuthSession } from '../services/authService';
+import { isValidEmail, isValidPassword } from '../utils/validators';
 
 interface Props {
   onSuccess: (session: AuthSession) => void;
@@ -24,26 +25,46 @@ const RegisterScreen: React.FC<Props> = ({ onSuccess, onLogin }) => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  let passwordRef: TextInput | null = null;
   const [confirm, setConfirm] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleRegister = async () => {
+    // 🔴 Required fields check
     if (!name.trim() || !email.trim() || !password) {
       Alert.alert('Validation', 'All fields are required.');
       return;
     }
+
+    // 🔴 Email validation
+    if (!isValidEmail(email)) {
+      Alert.alert('Validation', 'Please enter a valid email address.');
+      return;
+    }
+
+    // 🔴 Password strength validation
+    if (!isValidPassword(password)) {
+      Alert.alert(
+        'Validation',
+        'Password must be at least 8 characters and include uppercase, lowercase, and a number.',
+      );
+      return;
+    }
+
+    // 🔴 Confirm password
     if (password !== confirm) {
       Alert.alert('Validation', 'Passwords do not match.');
       return;
     }
-    if (password.length < 8) {
-      Alert.alert('Validation', 'Password must be at least 8 characters.');
-      return;
-    }
+
     setLoading(true);
+
     try {
-      const session = await register({ name: name.trim(), email: email.trim(), password });
+      const session = await register({
+        name: name.trim(),
+        email: email.trim(),
+        password,
+      });
+
       onSuccess(session);
     } catch (err: unknown) {
       Alert.alert('Registration Failed', err instanceof Error ? err.message : 'Please try again.');
@@ -68,9 +89,8 @@ const RegisterScreen: React.FC<Props> = ({ onSuccess, onLogin }) => {
           placeholderTextColor="#aaa"
           value={name}
           onChangeText={setName}
-          accessibilityLabel="Full name"
-          returnKeyType="next"
         />
+
         <TextInput
           style={styles.input}
           placeholder="Email"
@@ -79,20 +99,17 @@ const RegisterScreen: React.FC<Props> = ({ onSuccess, onLogin }) => {
           keyboardType="email-address"
           value={email}
           onChangeText={setEmail}
-          accessibilityLabel="Email"
-          returnKeyType="next"
         />
+
         <TextInput
           style={styles.input}
-          placeholder="Password (min 8 characters)"
+          placeholder="Password (min 8 chars, A-Z, a-z, 0-9)"
           placeholderTextColor="#aaa"
           secureTextEntry
           value={password}
           onChangeText={setPassword}
-          accessibilityLabel="Password"
-          ref={(r) => (passwordRef = r)}
-          returnKeyType="next"
         />
+
         <TextInput
           style={styles.input}
           placeholder="Confirm Password"
@@ -100,8 +117,6 @@ const RegisterScreen: React.FC<Props> = ({ onSuccess, onLogin }) => {
           secureTextEntry
           value={confirm}
           onChangeText={setConfirm}
-          accessibilityLabel="Confirm password"
-          returnKeyType="done"
           onSubmitEditing={() => void handleRegister()}
         />
 
@@ -109,8 +124,6 @@ const RegisterScreen: React.FC<Props> = ({ onSuccess, onLogin }) => {
           style={[styles.btn, loading && styles.btnDisabled]}
           onPress={() => void handleRegister()}
           disabled={loading}
-          accessibilityRole="button"
-          accessibilityLabel="Create account"
         >
           {loading ? (
             <ActivityIndicator color="#fff" />
@@ -121,7 +134,7 @@ const RegisterScreen: React.FC<Props> = ({ onSuccess, onLogin }) => {
 
         <View style={styles.footer}>
           <Text style={styles.footerText}>Already have an account? </Text>
-          <TouchableOpacity onPress={onLogin} accessibilityRole="button" accessibilityLabel="Sign in">
+          <TouchableOpacity onPress={onLogin}>
             <Text style={styles.link}>Sign In</Text>
           </TouchableOpacity>
         </View>

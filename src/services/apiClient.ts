@@ -7,6 +7,7 @@ import axios, {
 
 import config from '../config';
 import { setupInterceptors } from '../middleware/apiInterceptors';
+import { logError } from '../utils/errorLogger';
 
 // --- Circuit Breaker ---
 type CircuitState = 'CLOSED' | 'OPEN' | 'HALF_OPEN';
@@ -18,11 +19,12 @@ function isCircuitOpen(): boolean {
   if (circuit.state === 'OPEN') {
     if (Date.now() - circuit.lastFailureTime >= RECOVERY_TIMEOUT_MS) {
       circuit.state = 'HALF_OPEN';
-      Sentry.addBreadcrumb({
-        category: 'api',
-        message: 'Circuit breaker transitioning to HALF_OPEN',
-        level: 'info',
+
+      logError(new Error('Circuit breaker transitioning to HALF_OPEN'), {
+        service: 'apiClient',
+        action: 'circuit_half_open',
       });
+
       return false;
     }
     return true;
@@ -32,10 +34,9 @@ function isCircuitOpen(): boolean {
 
 function recordSuccess(): void {
   if (circuit.state !== 'CLOSED') {
-    Sentry.addBreadcrumb({
-      category: 'api',
-      message: 'Circuit breaker CLOSED after success',
-      level: 'info',
+    logError(new Error('Circuit breaker CLOSED after success'), {
+      service: 'apiClient',
+      action: 'circuit_closed',
     });
   }
   circuit.failures = 0;
@@ -45,11 +46,14 @@ function recordSuccess(): void {
 function recordFailure(): void {
   circuit.failures += 1;
   circuit.lastFailureTime = Date.now();
+
   if (circuit.failures >= FAILURE_THRESHOLD && circuit.state !== 'OPEN') {
     circuit.state = 'OPEN';
-    Sentry.captureMessage('Circuit breaker OPENED due to multiple failures', {
-      level: 'warning',
-      extra: { failures: circuit.failures },
+
+    logError(new Error('Circuit breaker OPENED due to multiple failures'), {
+      service: 'apiClient',
+      action: 'circuit_open',
+      failures: circuit.failures,
     });
   }
 }
@@ -68,8 +72,6 @@ const delay = (attempt: number) =>
   new Promise<void>((resolve) => setTimeout(resolve, BASE_DELAY_MS * 2 ** attempt));
 
 // --- Axios instance ---
-// Use pinned axios instance when possible. The pinning helper will attempt to
-// provide pins from config and secure storage; it also supports refreshing pins.
 let apiClient: AxiosInstance = axios.create({
   baseURL: config.api.baseUrl,
   timeout: config.api.timeoutMs,
@@ -86,27 +88,54 @@ export async function resilientRequest<T>(
   requestConfig: AxiosRequestConfig,
 ): Promise<AxiosResponse<T>> {
   if (isCircuitOpen()) {
-    throw new Error('Service temporarily unavailable. Please try again later.');
+    const error = new Error('Service temporarily unavailable. Please try again later.');
+
+    logError(error, {
+      service: 'apiClient',
+      action: 'circuit_block_request',
+      url: requestConfig.url,
+      method: requestConfig.method,
+    });
+
+    throw error;
   }
 
   let lastError: AxiosError | undefined;
+
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     try {
       if (attempt > 0) await delay(attempt - 1);
+
       const response = await apiClient.request<T>(requestConfig);
+
       recordSuccess();
       return response;
     } catch (err) {
       lastError = err as AxiosError;
+
       recordFailure();
+
       if (!shouldRetry(lastError, attempt)) break;
     }
   }
 
+  // --- FINAL ERROR (THIS is where logging matters most) ---
   const message = lastError?.response
     ? `Request failed with status ${lastError.response.status}`
     : (lastError?.message ?? 'Network error');
-  throw new Error(message);
+
+  const finalError = new Error(message);
+
+  logError(finalError, {
+    service: 'apiClient',
+    action: 'request_failed',
+    url: requestConfig.url,
+    method: requestConfig.method,
+    attempts: MAX_RETRIES + 1,
+    status: lastError?.response?.status,
+  });
+
+  throw finalError;
 }
 
 export const getCircuitState = () => circuit.state;
