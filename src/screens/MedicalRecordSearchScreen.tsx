@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 
 import { searchMedicalRecords, type MedicalRecord } from '../services/medicalRecordService';
+import { HeaderOfflineStatus, useOfflineStatus } from '../components/OfflineIndicator';
 
 interface Props {
   petId: string;
@@ -22,6 +23,7 @@ const MedicalRecordSearchScreen: React.FC<Props> = ({ petId, onBack }) => {
   const [results, setResults] = useState<MedicalRecord[]>([]);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
+  const offlineStatus = useOfflineStatus();
 
   const handleSearch = async () => {
     if (!query.trim()) return;
@@ -47,6 +49,9 @@ const MedicalRecordSearchScreen: React.FC<Props> = ({ petId, onBack }) => {
       {item.veterinarian ? (
         <Text style={styles.meta}>Vet: {item.veterinarian}</Text>
       ) : null}
+      {!offlineStatus?.isOnline ? (
+        <Text style={styles.cachedChip}>Cached</Text>
+      ) : null}
     </View>
   );
 
@@ -61,8 +66,16 @@ const MedicalRecordSearchScreen: React.FC<Props> = ({ petId, onBack }) => {
         >
           <Text style={styles.backText}>‹ Back</Text>
         </TouchableOpacity>
-        <Text style={styles.title}>Search Records</Text>
+        <View style={styles.titleRow}>
+          <Text style={styles.title}>Search Records</Text>
+          <HeaderOfflineStatus />
+        </View>
       </View>
+      {!offlineStatus?.isOnline ? (
+        <View style={styles.cachedBanner}>
+          <Text style={styles.cachedBannerText}>Showing cached records while offline.</Text>
+        </View>
+      ) : null}
 
       <View style={styles.searchRow}>
         <TextInput
@@ -119,6 +132,15 @@ const styles = StyleSheet.create({
   backBtn: { padding: 4 },
   backText: { fontSize: 17, color: '#4CAF50' },
   title: { fontSize: 17, fontWeight: '700', color: '#1a1a1a' },
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  cachedBanner: {
+    backgroundColor: '#fff3e0',
+    borderBottomWidth: 1,
+    borderBottomColor: '#ffe0b2',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  cachedBannerText: { color: '#a54900', fontSize: 12, fontWeight: '600' },
   searchRow: {
     flexDirection: 'row',
     padding: 12,
@@ -171,6 +193,19 @@ const styles = StyleSheet.create({
   date: { fontSize: 12, color: '#999' },
   notes: { fontSize: 14, color: '#333', marginBottom: 4 },
   meta: { fontSize: 12, color: '#888' },
+  cachedChip: {
+    alignSelf: 'flex-start',
+    marginTop: 8,
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#a54900',
+    backgroundColor: '#fff3e0',
+    borderColor: '#ed6c02',
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+  },
   empty: { textAlign: 'center', color: '#999', marginTop: 40, fontSize: 15 },
 });
 
