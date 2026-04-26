@@ -27,8 +27,7 @@ export type PetStackParamList = {
   PetListScreen: undefined;
   PetDetail: { petId: string };
   PetForm: { pet?: Pet; ownerId?: string };
-  MedicalRecordShare: { petId: string; recordId: string };
-  NotificationPreferences: undefined;
+  MedicalRecordSearch: { petId: string };
 };
 
 // ─── Screen prop helpers ──────────────────────────────────────────────────────

@@ -6,8 +6,7 @@ import React from 'react';
 import type { RootStackParamList, MainTabParamList, PetStackParamList } from './types';
 import { DEEP_LINK_PREFIX } from './types';
 import type { Pet } from '../models/Pet';
-import NotificationPreferencesScreen from '../screens/NotificationPreferencesScreen';
-import MedicalRecordShareScreen from '../screens/MedicalRecordShareScreen';
+import MedicalRecordSearchScreen from '../screens/MedicalRecordSearchScreen';
 import AuthNavigator from '../screens/AuthNavigator';
 import EmergencyContactsScreen from '../screens/EmergencyContactsScreen';
 import ManualEntryScreen from '../screens/ManualEntryScreen';
@@ -54,11 +53,10 @@ function PetNavigator() {
           />
         )}
       </PetStack.Screen>
-      <PetStack.Screen name="MedicalRecordShare" options={{ title: 'Share Record' }}>
+      <PetStack.Screen name="MedicalRecordSearch" options={{ title: 'Search Records' }}>
         {({ route, navigation }) => (
-          <MedicalRecordShareScreen
+          <MedicalRecordSearchScreen
             petId={route.params.petId}
-            recordId={route.params.recordId}
             onBack={() => navigation.goBack()}
           />
         )}
