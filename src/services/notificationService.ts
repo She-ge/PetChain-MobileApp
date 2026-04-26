@@ -30,9 +30,14 @@ export interface NotificationPreferences {
   medicationReminders: boolean;
   appointmentReminders: boolean;
   vaccinationAlerts: boolean;
-  reminderLeadTimeMinutes: number; // how many minutes before appointment to notify
+  reminderLeadTimeMinutes: number;
   soundEnabled: boolean;
+  vibrationEnabled: boolean;
   badgeEnabled: boolean;
+  quietHoursEnabled: boolean;
+  quietHoursStart: string; // "HH:MM"
+  quietHoursEnd: string;   // "HH:MM"
+  petOverrides: { petId: string; medicationReminders?: boolean; appointmentReminders?: boolean; vaccinationAlerts?: boolean }[];
 }
 
 export type NotificationGroup = 'medication' | 'appointment' | 'vaccination' | 'alert';
@@ -46,7 +51,12 @@ const DEFAULT_PREFS: NotificationPreferences = {
   vaccinationAlerts: true,
   reminderLeadTimeMinutes: 60,
   soundEnabled: true,
+  vibrationEnabled: true,
   badgeEnabled: true,
+  quietHoursEnabled: false,
+  quietHoursStart: '22:00',
+  quietHoursEnd: '07:00',
+  petOverrides: [],
 };
 
 // ─── Notification handler ─────────────────────────────────────────────────────
@@ -54,15 +64,29 @@ const DEFAULT_PREFS: NotificationPreferences = {
 Notifications.setNotificationHandler({
   handleNotification: async () => {
     const prefs = await getPreferences();
+    const suppressed = prefs.quietHoursEnabled && isQuietHour(prefs.quietHoursStart, prefs.quietHoursEnd);
     return {
-      shouldShowAlert: true,
-      shouldPlaySound: prefs.soundEnabled,
+      shouldShowAlert: !suppressed,
+      shouldPlaySound: !suppressed && prefs.soundEnabled,
       shouldSetBadge: prefs.badgeEnabled,
-      shouldShowBanner: true,
+      shouldShowBanner: !suppressed,
       shouldShowList: true,
     };
   },
 });
+
+// Returns true if the current time falls within quiet hours
+export const isQuietHour = (start: string, end: string): boolean => {
+  const now = new Date();
+  const toMinutes = (hhmm: string) => {
+    const [h, m] = hhmm.split(':').map(Number);
+    return h * 60 + m;
+  };
+  const current = now.getHours() * 60 + now.getMinutes();
+  const s = toMinutes(start);
+  const e = toMinutes(end);
+  return s < e ? current >= s && current < e : current >= s || current < e;
+};
 
 // ─── Permissions ──────────────────────────────────────────────────────────────
 

@@ -26,7 +26,9 @@ export type MainTabParamList = {
 export type PetStackParamList = {
   PetListScreen: undefined;
   PetDetail: { petId: string };
+  PetHealthMetrics: { petId: string; petName?: string };
   PetForm: { pet?: Pet; ownerId?: string };
+  MedicalRecordSearch: { petId: string };
 };
 
 // ─── Screen prop helpers ──────────────────────────────────────────────────────

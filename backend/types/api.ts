@@ -448,6 +448,20 @@ export const API_ENDPOINTS = {
   MEDICAL_RECORDS_DELETE: '/medical-records/:id',
   MEDICAL_RECORDS_BY_PET: '/medical-records/pet/:petId',
 
+  // Appointments
+  APPOINTMENTS_LIST: '/appointments',
+  APPOINTMENTS_GET: '/appointments/:id',
+  APPOINTMENTS_CREATE: '/appointments',
+  APPOINTMENTS_UPDATE: '/appointments/:id',
+  APPOINTMENTS_DELETE: '/appointments/:id',
+
+  // Medications
+  MEDICATIONS_LIST: '/medications',
+  MEDICATIONS_GET: '/medications/:id',
+  MEDICATIONS_CREATE: '/medications',
+  MEDICATIONS_UPDATE: '/medications/:id',
+  MEDICATIONS_DELETE: '/medications/:id',
+
   // Blockchain
   BLOCKCHAIN_RECORDS_VERIFY: '/blockchain/records/verify',
   BLOCKCHAIN_RECORDS_STORE: '/blockchain/records/store',

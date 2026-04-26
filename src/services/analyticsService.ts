@@ -18,11 +18,12 @@ async function track(type: EventType, name: string, meta?: Record<string, unknow
   }
 }
 
-const analyticsService = {
+export const analyticsService = {
   screenView: (screenName: string) => track('screen_view', screenName),
   featureUsed: (featureName: string, meta?: Record<string, unknown>) =>
     track('feature_usage', featureName, meta),
-  error: (message: string, meta?: Record<string, unknown>) => track('error', message, meta),
+  error: (errorMessage: string, meta?: Record<string, unknown>) =>
+    track('error', errorMessage, meta),
 };
 
 export default analyticsService;

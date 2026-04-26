@@ -15,13 +15,29 @@ export interface EmergencyContact {
   email?: string;
 }
 
+export interface PetNotificationOverride {
+  petId: string;
+  medicationReminders?: boolean;
+  appointmentReminders?: boolean;
+  vaccinationAlerts?: boolean;
+}
+
 export interface NotificationPreferences {
+  // By type
   medicationReminders?: boolean;
   appointmentReminders?: boolean;
   vaccinationAlerts?: boolean;
   reminderLeadTimeMinutes?: number;
+  // Sound / vibration
   soundEnabled?: boolean;
+  vibrationEnabled?: boolean;
   badgeEnabled?: boolean;
+  // Quiet hours
+  quietHoursEnabled?: boolean;
+  quietHoursStart?: string; // "HH:MM" 24-hour
+  quietHoursEnd?: string;   // "HH:MM" 24-hour
+  // Per-pet overrides
+  petOverrides?: PetNotificationOverride[];
 }
 
 export interface User {

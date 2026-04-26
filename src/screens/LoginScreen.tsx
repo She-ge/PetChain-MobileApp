@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -13,6 +13,7 @@ import {
 
 import { login } from '../services/authService';
 import type { AuthSession } from '../services/authService';
+import { isValidEmail } from '../utils/validators';
 
 interface Props {
   onSuccess: (session: AuthSession) => void;
@@ -23,15 +24,26 @@ interface Props {
 const LoginScreen: React.FC<Props> = ({ onSuccess, onRegister, onForgotPassword }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  let passwordRef: TextInput | null = null;
   const [loading, setLoading] = useState(false);
 
+  // ✅ proper ref fix
+  const passwordRef = useRef<TextInput>(null);
+
   const handleLogin = async () => {
+    // 🔴 Required fields
     if (!email.trim() || !password) {
       Alert.alert('Validation', 'Email and password are required.');
       return;
     }
+
+    // 🔴 Email validation
+    if (!isValidEmail(email)) {
+      Alert.alert('Validation', 'Please enter a valid email address.');
+      return;
+    }
+
     setLoading(true);
+
     try {
       const session = await login(email.trim(), password);
       onSuccess(session);
@@ -60,10 +72,10 @@ const LoginScreen: React.FC<Props> = ({ onSuccess, onRegister, onForgotPassword 
           keyboardType="email-address"
           value={email}
           onChangeText={setEmail}
-          accessibilityLabel="Email"
           returnKeyType="next"
-          onSubmitEditing={() => passwordRef?.focus?.()}
+          onSubmitEditing={() => passwordRef.current?.focus()}
         />
+
         <TextInput
           style={styles.input}
           placeholder="Password"
@@ -71,19 +83,12 @@ const LoginScreen: React.FC<Props> = ({ onSuccess, onRegister, onForgotPassword 
           secureTextEntry
           value={password}
           onChangeText={setPassword}
-          accessibilityLabel="Password"
-          ref={(r) => (passwordRef = r)}
+          ref={passwordRef}
           returnKeyType="go"
           onSubmitEditing={() => void handleLogin()}
         />
 
-        <TouchableOpacity
-          onPress={onForgotPassword}
-          style={styles.forgotLink}
-          accessibilityRole="button"
-          accessibilityLabel="Forgot password"
-          accessibilityHint="Opens password recovery flow"
-        >
+        <TouchableOpacity onPress={onForgotPassword} style={styles.forgotLink}>
           <Text style={styles.link}>Forgot password?</Text>
         </TouchableOpacity>
 
@@ -91,9 +96,6 @@ const LoginScreen: React.FC<Props> = ({ onSuccess, onRegister, onForgotPassword 
           style={[styles.btn, loading && styles.btnDisabled]}
           onPress={() => void handleLogin()}
           disabled={loading}
-          accessibilityRole="button"
-          accessibilityLabel="Sign in"
-          accessibilityHint="Signs you into your account"
         >
           {loading ? (
             <ActivityIndicator color="#fff" />
@@ -104,7 +106,7 @@ const LoginScreen: React.FC<Props> = ({ onSuccess, onRegister, onForgotPassword 
 
         <View style={styles.footer}>
           <Text style={styles.footerText}>Don't have an account? </Text>
-          <TouchableOpacity onPress={onRegister} accessibilityRole="button" accessibilityLabel="Register">
+          <TouchableOpacity onPress={onRegister}>
             <Text style={styles.link}>Register</Text>
           </TouchableOpacity>
         </View>
@@ -113,12 +115,28 @@ const LoginScreen: React.FC<Props> = ({ onSuccess, onRegister, onForgotPassword 
   );
 };
 
+export default LoginScreen;
+
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f5f5f5' },
   inner: { flex: 1, justifyContent: 'center', padding: 24 },
+
   logo: { fontSize: 56, textAlign: 'center', marginBottom: 12 },
-  title: { fontSize: 26, fontWeight: '700', textAlign: 'center', color: '#1a1a1a' },
-  subtitle: { fontSize: 15, color: '#666', textAlign: 'center', marginBottom: 32 },
+
+  title: {
+    fontSize: 26,
+    fontWeight: '700',
+    textAlign: 'center',
+    color: '#1a1a1a',
+  },
+
+  subtitle: {
+    fontSize: 15,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 32,
+  },
+
   input: {
     backgroundColor: '#fff',
     borderWidth: 1,
@@ -130,7 +148,12 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     color: '#1a1a1a',
   },
-  forgotLink: { alignSelf: 'flex-end', marginBottom: 20 },
+
+  forgotLink: {
+    alignSelf: 'flex-end',
+    marginBottom: 20,
+  },
+
   btn: {
     backgroundColor: '#4CAF50',
     borderRadius: 10,
@@ -138,11 +161,30 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 20,
   },
-  btnDisabled: { opacity: 0.6 },
-  btnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
-  footer: { flexDirection: 'row', justifyContent: 'center' },
-  footerText: { color: '#666', fontSize: 14 },
-  link: { color: '#4CAF50', fontWeight: '600', fontSize: 14 },
-});
 
-export default LoginScreen;
+  btnDisabled: {
+    opacity: 0.6,
+  },
+
+  btnText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+
+  footer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+  },
+
+  footerText: {
+    color: '#666',
+    fontSize: 14,
+  },
+
+  link: {
+    color: '#4CAF50',
+    fontWeight: '600',
+    fontSize: 14,
+  },
+});

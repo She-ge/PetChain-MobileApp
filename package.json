@@ -1,5 +1,11 @@
 {
   "scripts": {
+    "start": "APP_ENV=development expo start",
+    "start:staging": "APP_ENV=staging expo start",
+    "start:production": "APP_ENV=production expo start",
+    "build:development": "APP_ENV=development expo build",
+    "build:staging": "APP_ENV=staging expo build",
+    "build:production": "APP_ENV=production expo build",
     "test": "jest --runInBand",
     "test:ci": "jest --runInBand --ci --coverage",
     "typecheck": "tsc --noEmit",
@@ -48,28 +54,29 @@
     ]
   },
   "dependencies": {
-    "@urql/core": "^5.0.0",
-    "graphql": "^16.0.0",
     "@react-native-async-storage/async-storage": "^2.1.2",
     "@react-native-community/geolocation": "^3.4.0",
     "@react-native-community/netinfo": "^11.4.1",
     "@react-navigation/bottom-tabs": "6.6.1",
     "@react-navigation/native": "6.1.18",
     "@react-navigation/native-stack": "6.11.0",
-    "axios": "^1.13.5",
+    "@urql/core": "^5.0.0",
+    "axios": "^1.15.2",
     "crypto-js": "^4.2.0",
     "expo-constants": "^18.0.13",
     "expo-notifications": "^0.31.1",
     "expo-secure-store": "^14.0.1",
+    "graphql": "^16.0.0",
     "react-native-image-picker": "^7.0.0",
     "react-native-image-resizer": "^1.4.5",
-    "react-native-keychain": "^10.0.0"
-    ,
+    "react-native-keychain": "^10.0.0",
     "react-native-ssl-pinning": "^1.5.3"
   },
   "devDependencies": {
     "@eslint/js": "9.26.0",
+    "@types/cors": "^2.8.19",
     "@types/crypto-js": "^4.2.2",
+    "@types/express": "^5.0.6",
     "@types/jest": "^29.5.14",
     "@types/node": "^20.0.0",
     "@types/react": "^19.1.1",
@@ -84,6 +91,7 @@
     "lint-staged": "15.5.1",
     "prettier": "3.5.3",
     "ts-jest": "^29.4.6",
+    "tsx": "^4.21.0",
     "typescript": "^5.9.3",
     "typescript-eslint": "8.59.0"
   }
