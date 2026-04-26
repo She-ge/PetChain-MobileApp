@@ -66,6 +66,14 @@ function PetNavigator() {
           <NotificationPreferencesScreen onBack={() => navigation.goBack()} />
         )}
       </PetStack.Screen>
+      <PetStack.Screen name="DeleteAccount" options={{ title: 'Delete Account' }}>
+        {({ navigation }) => (
+          <DeleteAccountScreen
+            onBack={() => navigation.goBack()}
+            onDeleted={() => navigation.getParent()?.getParent()?.reset({ index: 0, routes: [{ name: 'Auth' }] })}
+          />
+        )}
+      </PetStack.Screen>
     </PetStack.Navigator>
   );
 }
