@@ -197,7 +197,7 @@ class SyncService {
 
     const resolved = resolution === 'local' ? conflict.localData : conflict.serverData;
     const key = `@${conflict.type}_${entityId}`;
-    await AsyncStorage.setItem(key, JSON.stringify(resolved));
+    await setItem(key, JSON.stringify(resolved));
 
     // If choosing local, push it to server
     if (resolution === 'local') {
@@ -224,7 +224,7 @@ class SyncService {
   }
 
   async clearQueue(): Promise<void> {
-    await AsyncStorage.setItem(SYNC_QUEUE_KEY, JSON.stringify([]));
+    await setItem(SYNC_QUEUE_KEY, JSON.stringify([]));
     await this.patchStatus({ pendingCount: 0, failedCount: 0 });
   }
 
@@ -246,14 +246,14 @@ class SyncService {
   }
 
   private async getQueue(): Promise<SyncItem[]> {
-    const stored = await AsyncStorage.getItem(SYNC_QUEUE_KEY);
+    const stored = await getItem(SYNC_QUEUE_KEY);
     return stored ? JSON.parse(stored) : [];
   }
 
   private async patchStatus(updates: Partial<SyncStatus>): Promise<void> {
     const current = await this.getStatus();
     const next = { ...current, ...updates };
-    await AsyncStorage.setItem(SYNC_STATUS_KEY, JSON.stringify(next));
+    await setItem(SYNC_STATUS_KEY, JSON.stringify(next));
     this.statusListeners.forEach((l) => l(next));
   }
 

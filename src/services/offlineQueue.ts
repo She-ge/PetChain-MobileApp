@@ -1,4 +1,4 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getItem, setItem } from './localDB';
 
 import { networkMonitor } from '../utils/networkMonitor';
 import { sendAlertNotification } from './notificationService';
@@ -182,16 +182,16 @@ class OfflineQueue {
       retries: 0,
     };
     queue.push(item);
-    await AsyncStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
+    await setItem(QUEUE_KEY, JSON.stringify(queue));
   }
 
   async getPersistentQueue(): Promise<QueuedMutation[]> {
-    const stored = await AsyncStorage.getItem(QUEUE_KEY);
+    const stored = await getItem(QUEUE_KEY);
     return stored ? JSON.parse(stored) : [];
   }
 
   private async clearPersistentQueue(): Promise<void> {
-    await AsyncStorage.setItem(QUEUE_KEY, JSON.stringify([]));
+    await setItem(QUEUE_KEY, JSON.stringify([]));
   }
 
   // ── Notification helper ───────────────────────────────────────────────────

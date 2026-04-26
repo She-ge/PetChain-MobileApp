@@ -1,4 +1,4 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getItem, setItem, removeItem } from '../services/localDB';
 import { type AxiosInstance, type AxiosError, type InternalAxiosRequestConfig } from 'axios';
 
 const ACCESS_TOKEN_KEY = '@access_token';
@@ -13,7 +13,7 @@ export const setupInterceptors = (apiClient: AxiosInstance): void => {
   // Request: auth token injection
   apiClient.interceptors.request.use(
     async (config: InternalAxiosRequestConfig) => {
-      const token = await AsyncStorage.getItem(ACCESS_TOKEN_KEY);
+      const token = await getItem(ACCESS_TOKEN_KEY);
       if (token) config.headers.Authorization = `Bearer ${token}`;
       return config;
     },
@@ -47,22 +47,22 @@ export const setupInterceptors = (apiClient: AxiosInstance): void => {
       if (error.response?.status === 401 && !originalRequest._retry) {
         originalRequest._retry = true;
         try {
-          const refreshToken = await AsyncStorage.getItem(REFRESH_TOKEN_KEY);
+          const refreshToken = await getItem(REFRESH_TOKEN_KEY);
           if (!refreshToken) return Promise.reject(error);
 
           const { data } = await apiClient.post<TokenResponse>('/auth/refresh', { refreshToken });
 
           await Promise.all([
-            AsyncStorage.setItem(ACCESS_TOKEN_KEY, data.accessToken),
-            AsyncStorage.setItem(REFRESH_TOKEN_KEY, data.refreshToken),
+            setItem(ACCESS_TOKEN_KEY, data.accessToken),
+            setItem(REFRESH_TOKEN_KEY, data.refreshToken),
           ]);
 
           originalRequest.headers.Authorization = `Bearer ${data.accessToken}`;
           return apiClient(originalRequest);
         } catch {
           await Promise.all([
-            AsyncStorage.removeItem(ACCESS_TOKEN_KEY),
-            AsyncStorage.removeItem(REFRESH_TOKEN_KEY),
+            removeItem(ACCESS_TOKEN_KEY),
+            removeItem(REFRESH_TOKEN_KEY),
           ]);
         }
       }

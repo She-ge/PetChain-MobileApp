@@ -1,8 +1,8 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getItem, setItem } from '../localDB';
 import { SyncService } from '../syncService';
 import apiClient from '../apiClient';
 
-jest.mock('@react-native-async-storage/async-storage', () => ({
+jest.mock('../localDB', () => ({
   getItem: jest.fn(),
   setItem: jest.fn(),
   removeItem: jest.fn(),
@@ -21,11 +21,11 @@ describe('SyncService', () => {
 
   describe('enqueue', () => {
     it('should add item to queue', async () => {
-      (AsyncStorage.getItem as jest.Mock).mockResolvedValue('[]');
+      (getItem as jest.Mock).mockResolvedValue('[]');
       
       await syncService.enqueue('pet', 'create', { id: 'pet-1', name: 'Buddy' });
       
-      expect(AsyncStorage.setItem).toHaveBeenCalledWith(
+      expect(setItem).toHaveBeenCalledWith(
         '@sync_queue',
         expect.stringContaining('"type":"pet"')
       );
@@ -33,11 +33,11 @@ describe('SyncService', () => {
 
     it('should deduplicate existing items', async () => {
       const existingItem = { id: 'q1', type: 'pet', action: 'update', data: { id: 'p1', name: 'Old' } };
-      (AsyncStorage.getItem as jest.Mock).mockResolvedValue(JSON.stringify([existingItem]));
+      (getItem as jest.Mock).mockResolvedValue(JSON.stringify([existingItem]));
       
       await syncService.enqueue('pet', 'update', { id: 'p1', name: 'New' });
       
-      const setCall = (AsyncStorage.setItem as jest.Mock).mock.calls[0];
+      const setCall = (setItem as jest.Mock).mock.calls[0];
       const savedQueue = JSON.parse(setCall[1]);
       expect(savedQueue).toHaveLength(1);
       expect(savedQueue[0].data.name).toBe('New');
@@ -47,13 +47,13 @@ describe('SyncService', () => {
   describe('pull', () => {
     it('should fetch items from server', async () => {
       mockedApiClient.get.mockResolvedValue({ data: [{ id: 'p1', name: 'Server Pet' }] });
-      (AsyncStorage.getItem as jest.Mock).mockResolvedValue('[]');
+      (getItem as jest.Mock).mockResolvedValue('[]');
 
       await syncService.pull(['pet']);
 
       expect(mockedApiClient.get).toHaveBeenCalledWith('/pets');
       // Should save to local storage (e.g., @pets) - based on implementation details
-      expect(AsyncStorage.setItem).toHaveBeenCalled();
+      expect(setItem).toHaveBeenCalled();
     });
   });
 
@@ -62,7 +62,7 @@ describe('SyncService', () => {
       const listener = jest.fn();
       syncService.subscribe(listener);
       
-      (AsyncStorage.getItem as jest.Mock).mockResolvedValue('[]');
+      (getItem as jest.Mock).mockResolvedValue('[]');
       await syncService.enqueue('pet', 'create', { id: '1' });
       
       expect(listener).toHaveBeenCalled();
