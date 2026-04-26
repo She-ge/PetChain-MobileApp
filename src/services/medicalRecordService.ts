@@ -1,4 +1,6 @@
 import axios, { type AxiosResponse } from 'axios';
+import { getItem, setItem } from './localDB';
+import offlineQueue from './offlineQueue';
 
 // Types
 export interface MedicalRecord {
@@ -55,6 +57,17 @@ export class MedicalRecordError extends Error {
 
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'https://api.petchain.com';
 
+const RECORDS_CACHE_PREFIX = '@records_';
+
+async function cacheRecords(petId: string, records: MedicalRecord[]): Promise<void> {
+  await setItem(`${RECORDS_CACHE_PREFIX}${petId}`, JSON.stringify(records));
+}
+
+async function getCachedRecords(petId: string): Promise<MedicalRecord[]> {
+  const cached = await getItem(`${RECORDS_CACHE_PREFIX}${petId}`);
+  return cached ? JSON.parse(cached) : [];
+}
+
 // Helper function to handle API errors
 const handleApiError = (error: any): never => {
   if (axios.isAxiosError(error)) {
@@ -98,8 +111,27 @@ export const getMedicalRecords = async (
       `${API_BASE_URL}/pets/${petId}/medical-records?${params.toString()}`,
     );
 
-    return response.data;
+    const data = response.data;
+    // Only cache if no filters are applied (full set) or handle caching strategy
+    if (!filters || Object.keys(filters).length === 0) {
+      await cacheRecords(petId, data.data);
+    }
+    return data;
   } catch (error) {
+    if (axios.isAxiosError(error) && !error.response) {
+      const cached = await getCachedRecords(petId);
+      let filtered = cached;
+      if (filters?.type) {
+        filtered = filtered.filter(r => r.type === filters.type);
+      }
+      return {
+        data: filtered,
+        total: filtered.length,
+        page: 1,
+        limit: filters?.limit || 10,
+        totalPages: 1,
+      };
+    }
     return handleApiError(error);
   }
 };
@@ -157,4 +189,103 @@ export const searchMedicalRecords = async (
   const { data } = await getMedicalRecords(petId, { limit: 1000 });
   const q = query.trim().toLowerCase();
   return data.filter((record) => extractSearchableText(record).includes(q));
+};
+
+export const createMedicalRecord = async (
+  petId: string,
+  data: Partial<MedicalRecord>,
+): Promise<MedicalRecord> => {
+  if (!petId) throw new MedicalRecordError('Pet ID is required', 'INVALID_PET_ID');
+
+  try {
+    const response = await axios.post(`${API_BASE_URL}/pets/${petId}/medical-records`, data);
+    const newRecord = response.data;
+    
+    // Update cache
+    const cached = await getCachedRecords(petId);
+    cached.unshift(newRecord);
+    await cacheRecords(petId, cached);
+    
+    return newRecord;
+  } catch (error) {
+    if (axios.isAxiosError(error) && !error.response) {
+      const tempId = `temp_${Date.now()}`;
+      const newRecord: MedicalRecord = {
+        ...data,
+        id: tempId,
+        petId,
+        createdAt: new Date().toISOString(),
+      } as MedicalRecord;
+
+      await offlineQueue.enqueue('medicalRecord', 'create', newRecord as any);
+      
+      const cached = await getCachedRecords(petId);
+      cached.unshift(newRecord);
+      await cacheRecords(petId, cached);
+      
+      return newRecord;
+    }
+    return handleApiError(error);
+  }
+};
+
+export const updateMedicalRecord = async (
+  petId: string,
+  recordId: string,
+  data: Partial<MedicalRecord>,
+): Promise<MedicalRecord> => {
+  if (!petId) throw new MedicalRecordError('Pet ID is required', 'INVALID_PET_ID');
+  if (!recordId) throw new MedicalRecordError('Record ID is required', 'INVALID_RECORD_ID');
+
+  try {
+    const response = await axios.put(`${API_BASE_URL}/pets/${petId}/medical-records/${recordId}`, data);
+    const updatedRecord = response.data;
+    
+    // Update cache
+    const cached = await getCachedRecords(petId);
+    const idx = cached.findIndex(r => r.id === recordId);
+    if (idx >= 0) {
+      cached[idx] = updatedRecord;
+      await cacheRecords(petId, cached);
+    }
+    
+    return updatedRecord;
+  } catch (error) {
+    if (axios.isAxiosError(error) && !error.response) {
+      const cached = await getCachedRecords(petId);
+      const idx = cached.findIndex(r => r.id === recordId);
+      if (idx >= 0) {
+        const updatedRecord = { ...cached[idx], ...data };
+        await offlineQueue.enqueue('medicalRecord', 'update', { id: recordId, petId, ...data });
+        cached[idx] = updatedRecord;
+        await cacheRecords(petId, cached);
+        return updatedRecord;
+      }
+    }
+    return handleApiError(error);
+  }
+};
+
+export const deleteMedicalRecord = async (
+  petId: string,
+  recordId: string,
+): Promise<void> => {
+  if (!petId) throw new MedicalRecordError('Pet ID is required', 'INVALID_PET_ID');
+  if (!recordId) throw new MedicalRecordError('Record ID is required', 'INVALID_RECORD_ID');
+
+  try {
+    await axios.delete(`${API_BASE_URL}/pets/${petId}/medical-records/${recordId}`);
+    
+    // Update cache
+    const cached = await getCachedRecords(petId);
+    await cacheRecords(petId, cached.filter(r => r.id !== recordId));
+  } catch (error) {
+    if (axios.isAxiosError(error) && !error.response) {
+      await offlineQueue.enqueue('medicalRecord', 'delete', { id: recordId, petId });
+      const cached = await getCachedRecords(petId);
+      await cacheRecords(petId, cached.filter(r => r.id !== recordId));
+      return;
+    }
+    return handleApiError(error);
+  }
 };

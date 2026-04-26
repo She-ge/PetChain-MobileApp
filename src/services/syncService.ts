@@ -91,10 +91,19 @@ class SyncService {
 
   // ── Pull from server ─────────────────────────────────────────────────────────
 
-  async pull(types: SyncEntityType[] = ['pet', 'appointment', 'medication']): Promise<void> {
+  async pull(types: SyncEntityType[] = ['pet', 'appointment', 'medication', 'medicalRecord']): Promise<void> {
     for (const type of types) {
       try {
-        const response = await apiClient.get<Record<string, unknown>[]>(`/${type}s`);
+        let endpoint = `/${type}s`;
+        if (type === 'medicalRecord') {
+          // For medical records, we might need a different pull strategy if they are nested.
+          // Assuming there's a user-level endpoint or we pull per pet.
+          // For now, let's try top-level /medical-records if available, 
+          // or skip if the API only supports nested.
+          endpoint = '/medical-records'; 
+        }
+
+        const response = await apiClient.get<Record<string, unknown>[]>(endpoint);
         const serverItems = response.data;
         // Persist each item locally
         for (const item of serverItems) {
@@ -231,16 +240,29 @@ class SyncService {
   // ── Private helpers ──────────────────────────────────────────────────────────
 
   private async syncItem(item: SyncItem): Promise<void> {
-    const endpoint = `/${item.type}s`;
+    let endpoint = `/${item.type}s`;
+    
+    // Handle nested medical record endpoints
+    if (item.type === 'medicalRecord') {
+      const petId = item.data.petId as string;
+      if (petId) {
+        endpoint = `/pets/${petId}/medical-records`;
+      } else {
+        endpoint = '/medical-records';
+      }
+    }
+
     switch (item.action) {
       case 'create':
         await apiClient.post(endpoint, item.data);
         break;
       case 'update':
-        await apiClient.put(`${endpoint}/${item.data.id}`, item.data);
+        const id = item.data.id as string;
+        await apiClient.put(`${endpoint}/${id}`, item.data);
         break;
       case 'delete':
-        await apiClient.delete(`${endpoint}/${item.data.id}`);
+        const delId = item.data.id as string;
+        await apiClient.delete(`${endpoint}/${delId}`);
         break;
     }
   }
