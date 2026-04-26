@@ -133,3 +133,28 @@ export const getTreatmentHistory = async (petId: string): Promise<Treatment[]> =
     return handleApiError(error);
   }
 };
+
+// Collect all searchable string values from a record (all fields)
+const extractSearchableText = (record: MedicalRecord): string => {
+  const parts: string[] = [];
+  const collect = (val: unknown) => {
+    if (typeof val === 'string') parts.push(val.toLowerCase());
+    else if (Array.isArray(val)) val.forEach(collect);
+    else if (val && typeof val === 'object') Object.values(val).forEach(collect);
+  };
+  collect(record);
+  return parts.join(' ');
+};
+
+// Search medical records by text across all fields
+export const searchMedicalRecords = async (
+  petId: string,
+  query: string,
+): Promise<MedicalRecord[]> => {
+  if (!petId) throw new MedicalRecordError('Pet ID is required', 'INVALID_PET_ID');
+  if (!query.trim()) return [];
+
+  const { data } = await getMedicalRecords(petId, { limit: 1000 });
+  const q = query.trim().toLowerCase();
+  return data.filter((record) => extractSearchableText(record).includes(q));
+};
