@@ -13,8 +13,10 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 import { logout, requestPasswordReset } from '../services/authService';
+import LanguageSelector from '../components/LanguageSelector';
 import {
   isBiometricAuthenticationAvailable,
   isBiometricAuthenticationEnabled,
@@ -56,23 +58,24 @@ interface ChangePasswordModalProps {
 }
 
 const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({ visible, email, onClose }) => {
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
 
   const handleSend = async () => {
     if (!email) {
-      Alert.alert('Error', 'No email address found for your account.');
+      Alert.alert(t('common.error'), t('changePassword.noEmail'));
       return;
     }
     setLoading(true);
     try {
       await requestPasswordReset(email);
       Alert.alert(
-        'Email Sent',
-        'Check your inbox for a password reset link.',
+        t('changePassword.emailSentTitle'),
+        t('changePassword.emailSentBody'),
         [{ text: 'OK', onPress: onClose }],
       );
     } catch (err) {
-      Alert.alert('Error', err instanceof Error ? err.message : 'Failed to send reset email.');
+      Alert.alert(t('common.error'), err instanceof Error ? err.message : t('changePassword.failedSend'));
     } finally {
       setLoading(false);
     }
@@ -82,10 +85,8 @@ const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({ visible, emai
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.modalOverlay}>
         <View style={styles.modalCard}>
-          <Text style={styles.modalTitle}>Change Password</Text>
-          <Text style={styles.modalBody}>
-            We'll send a password reset link to:
-          </Text>
+          <Text style={styles.modalTitle}>{t('changePassword.title')}</Text>
+          <Text style={styles.modalBody}>{t('changePassword.body')}</Text>
           <Text style={styles.modalEmail}>{email}</Text>
 
           <TouchableOpacity
@@ -96,12 +97,12 @@ const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({ visible, emai
             {loading ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text style={styles.btnText}>Send Reset Link</Text>
+              <Text style={styles.btnText}>{t('changePassword.sendResetLink')}</Text>
             )}
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.cancelBtn} onPress={onClose}>
-            <Text style={styles.cancelText}>Cancel</Text>
+            <Text style={styles.cancelText}>{t('common.cancel')}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -112,6 +113,7 @@ const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({ visible, emai
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 
 const SettingsScreen: React.FC<Props> = ({ onLogout }) => {
+  const { t } = useTranslation();
   const [profile, setProfile] = useState<User | null>(null);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -164,11 +166,11 @@ const SettingsScreen: React.FC<Props> = ({ onLogout }) => {
 
   const handleSaveProfile = useCallback(async () => {
     if (!name.trim()) {
-      Alert.alert('Validation', 'Name is required.');
+      Alert.alert(t('common.error'), t('settings.nameRequired'));
       return;
     }
     if (email.trim() && !validateEmail(email)) {
-      Alert.alert('Validation', 'Please enter a valid email address.');
+      Alert.alert(t('common.error'), t('settings.invalidEmail'));
       return;
     }
 
@@ -179,11 +181,11 @@ const SettingsScreen: React.FC<Props> = ({ onLogout }) => {
       setProfileSaved(true);
       setTimeout(() => setProfileSaved(false), 3000);
     } catch (err) {
-      Alert.alert('Error', err instanceof Error ? err.message : 'Failed to save profile.');
+      Alert.alert(t('common.error'), err instanceof Error ? err.message : t('settings.failedSaveProfile'));
     } finally {
       setProfileSaving(false);
     }
-  }, [name, email, phone]);
+  }, [name, email, phone, t]);
 
   // ── Notification toggle ────────────────────────────────────────────────────
 
@@ -197,7 +199,7 @@ const SettingsScreen: React.FC<Props> = ({ onLogout }) => {
       } catch {
         // Revert on failure
         setNotifPrefs(notifPrefs);
-        Alert.alert('Error', 'Failed to save notification preference.');
+        Alert.alert(t('common.error'), t('settings.failedSaveNotif'));
       } finally {
         setNotifSaving(false);
       }
@@ -213,7 +215,7 @@ const SettingsScreen: React.FC<Props> = ({ onLogout }) => {
       if (value) {
         const success = await promptForBiometricSetup();
         setBiometricEnabled(success);
-        if (!success) Alert.alert('Setup Failed', 'Could not enable biometric authentication.');
+        if (!success) Alert.alert(t('common.error'), t('settings.biometricSetupFailed'));
       } else {
         await disableBiometricAuthentication();
         setBiometricEnabled(false);
@@ -228,10 +230,10 @@ const SettingsScreen: React.FC<Props> = ({ onLogout }) => {
   // ── Logout ─────────────────────────────────────────────────────────────────
 
   const handleLogout = useCallback(() => {
-    Alert.alert('Log Out', 'Are you sure you want to log out?', [
-      { text: 'Cancel', style: 'cancel' },
+    Alert.alert(t('common.logoutConfirmTitle'), t('common.logoutConfirmMessage'), [
+      { text: t('common.cancel'), style: 'cancel' },
       {
-        text: 'Log Out',
+        text: t('common.logout'),
         style: 'destructive',
         onPress: async () => {
           setLoggingOut(true);
@@ -257,44 +259,44 @@ const SettingsScreen: React.FC<Props> = ({ onLogout }) => {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Text style={styles.screenTitle}>Settings</Text>
+      <Text style={styles.screenTitle}>{t('settings.title')}</Text>
 
       {/* ── Profile Settings ── */}
-      <SectionHeader title="Profile" />
+      <SectionHeader title={t('settings.profile')} />
       <View style={styles.card}>
-        <Text style={styles.label}>Name *</Text>
+        <Text style={styles.label}>{t('settings.name')} *</Text>
         <TextInput
           style={styles.input}
           value={name}
           onChangeText={setName}
-          placeholder="Your name"
+          placeholder={t('settings.namePlaceholder')}
           placeholderTextColor="#aaa"
           autoCapitalize="words"
         />
 
-        <Text style={styles.label}>Email</Text>
+        <Text style={styles.label}>{t('settings.email')}</Text>
         <TextInput
           style={styles.input}
           value={email}
           onChangeText={setEmail}
-          placeholder="your@email.com"
+          placeholder={t('settings.emailPlaceholder')}
           placeholderTextColor="#aaa"
           keyboardType="email-address"
           autoCapitalize="none"
         />
 
-        <Text style={styles.label}>Phone</Text>
+        <Text style={styles.label}>{t('settings.phone')}</Text>
         <TextInput
           style={styles.input}
           value={phone}
           onChangeText={setPhone}
-          placeholder="+1 555 000 0000"
+          placeholder={t('settings.phonePlaceholder')}
           placeholderTextColor="#aaa"
           keyboardType="phone-pad"
         />
 
         {profileSaved && (
-          <Text style={styles.successText}>✓ Profile saved successfully</Text>
+          <Text style={styles.successText}>{t('settings.profileSaved')}</Text>
         )}
 
         <TouchableOpacity
@@ -305,13 +307,13 @@ const SettingsScreen: React.FC<Props> = ({ onLogout }) => {
           {profileSaving ? (
             <ActivityIndicator color="#fff" />
           ) : (
-            <Text style={styles.btnText}>Save Profile</Text>
+            <Text style={styles.btnText}>{t('settings.saveProfile')}</Text>
           )}
         </TouchableOpacity>
       </View>
 
       {/* ── Notification Preferences ── */}
-      <SectionHeader title="Notifications" />
+      <SectionHeader title={t('settings.notifications')} />
       <View style={styles.card}>
         {notifSaving && (
           <ActivityIndicator size="small" color="#4CAF50" style={styles.notifLoader} />
@@ -319,11 +321,11 @@ const SettingsScreen: React.FC<Props> = ({ onLogout }) => {
 
         {(
           [
-            { key: 'medicationReminders', label: 'Medication Reminders' },
-            { key: 'appointmentReminders', label: 'Appointment Reminders' },
-            { key: 'vaccinationAlerts', label: 'Vaccination Alerts' },
-            { key: 'soundEnabled', label: 'Sound' },
-            { key: 'badgeEnabled', label: 'Badge Count' },
+            { key: 'medicationReminders', label: t('settings.medicationReminders') },
+            { key: 'appointmentReminders', label: t('settings.appointmentReminders') },
+            { key: 'vaccinationAlerts', label: t('settings.vaccinationAlerts') },
+            { key: 'soundEnabled', label: t('settings.sound') },
+            { key: 'badgeEnabled', label: t('settings.badgeCount') },
           ] as { key: keyof NotificationPreferences; label: string }[]
         ).map(({ key, label }, idx, arr) => (
           <React.Fragment key={key}>
@@ -343,13 +345,13 @@ const SettingsScreen: React.FC<Props> = ({ onLogout }) => {
       </View>
 
       {/* ── Security Settings ── */}
-      <SectionHeader title="Security" />
+      <SectionHeader title={t('settings.security')} />
       <View style={styles.card}>
         <TouchableOpacity
           style={styles.row}
           onPress={() => setShowChangePassword(true)}
         >
-          <Text style={styles.rowLabel}>Change Password</Text>
+          <Text style={styles.rowLabel}>{t('settings.changePassword')}</Text>
           <Text style={styles.chevron}>›</Text>
         </TouchableOpacity>
 
@@ -357,7 +359,7 @@ const SettingsScreen: React.FC<Props> = ({ onLogout }) => {
           <>
             <RowSeparator />
             <View style={styles.row}>
-              <Text style={styles.rowLabel}>Biometric Login</Text>
+              <Text style={styles.rowLabel}>{t('settings.biometricLogin')}</Text>
               {biometricLoading ? (
                 <ActivityIndicator size="small" color="#4CAF50" />
               ) : (
@@ -373,16 +375,22 @@ const SettingsScreen: React.FC<Props> = ({ onLogout }) => {
         )}
       </View>
 
+      {/* ── Language ── */}
+      <SectionHeader title={t('settings.language')} />
+      <View style={styles.card}>
+        <LanguageSelector />
+      </View>
+
       {/* ── App Information ── */}
-      <SectionHeader title="App Info" />
+      <SectionHeader title={t('settings.appInfo')} />
       <View style={styles.card}>
         <View style={styles.row}>
-          <Text style={styles.rowLabel}>Version</Text>
+          <Text style={styles.rowLabel}>{t('settings.version')}</Text>
           <Text style={styles.rowValue}>{APP_VERSION}</Text>
         </View>
         <RowSeparator />
         <View style={styles.row}>
-          <Text style={styles.rowLabel}>Build</Text>
+          <Text style={styles.rowLabel}>{t('settings.build')}</Text>
           <Text style={styles.rowValue}>{BUILD_NUMBER}</Text>
         </View>
         <RowSeparator />
@@ -390,7 +398,7 @@ const SettingsScreen: React.FC<Props> = ({ onLogout }) => {
           style={styles.row}
           onPress={() => void Linking.openURL(TERMS_URL)}
         >
-          <Text style={styles.rowLabel}>Terms of Service</Text>
+          <Text style={styles.rowLabel}>{t('settings.termsOfService')}</Text>
           <Text style={styles.chevron}>›</Text>
         </TouchableOpacity>
         <RowSeparator />
@@ -398,7 +406,7 @@ const SettingsScreen: React.FC<Props> = ({ onLogout }) => {
           style={styles.row}
           onPress={() => void Linking.openURL(PRIVACY_URL)}
         >
-          <Text style={styles.rowLabel}>Privacy Policy</Text>
+          <Text style={styles.rowLabel}>{t('settings.privacyPolicy')}</Text>
           <Text style={styles.chevron}>›</Text>
         </TouchableOpacity>
       </View>
@@ -412,7 +420,7 @@ const SettingsScreen: React.FC<Props> = ({ onLogout }) => {
         {loggingOut ? (
           <ActivityIndicator color="#d32f2f" />
         ) : (
-          <Text style={styles.logoutText}>Log Out</Text>
+          <Text style={styles.logoutText}>{t('common.logout')}</Text>
         )}
       </TouchableOpacity>
 
