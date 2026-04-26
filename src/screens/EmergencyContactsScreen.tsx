@@ -17,6 +17,7 @@ import emergencyService, {
   type VetClinic,
 } from "../services/emergencyService";
 import { useSecureScreen } from "../utils/secureScreen";
+import { formatWeight, formatAddress } from "../utils/localeValues";
 
 type Tab = "contacts" | "nearby";
 const CONTACT_TYPES: EmergencyContact["type"][] = [

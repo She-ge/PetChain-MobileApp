@@ -53,4 +53,13 @@ export default {
     en: 'English',
     es: 'Spanish',
   },
+  units: {
+    weight: 'Weight',
+    temperature: 'Temperature',
+    currency: 'Currency',
+    address: 'Address',
+    weightUnit: 'lb',
+    temperatureUnit: '°F',
+    currencyCode: 'USD',
+  },
 };

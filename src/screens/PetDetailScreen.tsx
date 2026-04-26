@@ -13,6 +13,7 @@ import petService, { type Pet } from "../services/petService";
 import { getPhoto } from "../utils/petPhotoStore";
 import { useSecureScreen } from "../utils/secureScreen";
 import { formatLocalDate, formatRelativeTime } from "../utils/dateLocale";
+import { formatAddress } from "../utils/localeValues";
 
 interface Props {
   petId: string;

@@ -17,6 +17,7 @@ import {
   updateUserProfile,
 } from "../services/userService";
 import { useSecureScreen } from "../utils/secureScreen";
+import { formatAddress } from "../utils/localeValues";
 
 const DEFAULT_FORM: Omit<User, "id"> = {
   email: "",
@@ -160,6 +161,9 @@ const ProfileScreen: React.FC = () => {
           />
         ),
       )}
+      {profile.address && formatAddress(profile.address) ? (
+        <Text style={styles.addressPreview}>{formatAddress(profile.address)}</Text>
+      ) : null}
 
       <Text style={styles.sectionTitle}>Emergency Contact</Text>
       {(["name", "phone", "relationship", "email"] as const).map((field) => (
@@ -265,6 +269,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   saveButtonText: { color: "#fff", fontWeight: "700", fontSize: 15 },
+  addressPreview: {
+    fontSize: 13,
+    color: "#4CAF50",
+    marginBottom: 12,
+    paddingHorizontal: 4,
+    fontStyle: "italic",
+  },
 });
 
 export default ProfileScreen;
