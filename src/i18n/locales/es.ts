@@ -53,13 +53,4 @@ export default {
     en: 'Inglés',
     es: 'Español',
   },
-  units: {
-    weight: 'Peso',
-    temperature: 'Temperatura',
-    currency: 'Moneda',
-    address: 'Dirección',
-    weightUnit: 'kg',
-    temperatureUnit: '°C',
-    currencyCode: 'EUR',
-  },
 };
