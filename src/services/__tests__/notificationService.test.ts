@@ -1,4 +1,4 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getItem, setItem } from '../localDB';
 import * as Notifications from 'expo-notifications';
 import { 
   requestPermissions, 
@@ -9,7 +9,7 @@ import {
   cancelEntityReminders
 } from '../notificationService';
 
-jest.mock('@react-native-async-storage/async-storage', () => ({
+jest.mock('../localDB', () => ({
   getItem: jest.fn(),
   setItem: jest.fn(),
   removeItem: jest.fn(),
@@ -44,15 +44,15 @@ describe('notificationService', () => {
 
   describe('preferences', () => {
     it('should return default preferences if none stored', async () => {
-      (AsyncStorage.getItem as jest.Mock).mockResolvedValue(null);
+      (getItem as jest.Mock).mockResolvedValue(null);
       const prefs = await getPreferences();
       expect(prefs.medicationReminders).toBe(true);
     });
 
     it('should save preferences', async () => {
-      (AsyncStorage.getItem as jest.Mock).mockResolvedValue(JSON.stringify({ medicationReminders: true }));
+      (getItem as jest.Mock).mockResolvedValue(JSON.stringify({ medicationReminders: true }));
       await savePreferences({ medicationReminders: false });
-      expect(AsyncStorage.setItem).toHaveBeenCalledWith(
+      expect(setItem).toHaveBeenCalledWith(
         '@notification_preferences',
         expect.stringContaining('"medicationReminders":false')
       );
@@ -69,20 +69,20 @@ describe('notificationService', () => {
     };
 
     it('should schedule medication reminders', async () => {
-      (AsyncStorage.getItem as jest.Mock).mockResolvedValue(null);
+      (getItem as jest.Mock).mockResolvedValue(null);
       (Notifications.scheduleNotificationAsync as jest.Mock).mockResolvedValue('notif-id-123');
       
       await scheduleMedicationReminders(mockMedication);
       
       expect(Notifications.scheduleNotificationAsync).toHaveBeenCalled();
-      expect(AsyncStorage.setItem).toHaveBeenCalledWith(
+      expect(setItem).toHaveBeenCalledWith(
         '@notification_map',
         expect.stringContaining('notif-id-123')
       );
     });
 
     it('should cancel existing reminders before scheduling new ones', async () => {
-      (AsyncStorage.getItem as jest.Mock).mockResolvedValue(JSON.stringify({ 'med-123': ['old-id'] }));
+      (getItem as jest.Mock).mockResolvedValue(JSON.stringify({ 'med-123': ['old-id'] }));
       
       await scheduleMedicationReminders(mockMedication);
       
@@ -90,12 +90,35 @@ describe('notificationService', () => {
     });
 
     it('should cancel all reminders for an entity', async () => {
-      (AsyncStorage.getItem as jest.Mock).mockResolvedValue(JSON.stringify({ 'med-123': ['id1', 'id2'] }));
+      (getItem as jest.Mock).mockResolvedValue(JSON.stringify({ 'med-123': ['id1', 'id2'] }));
       
       await cancelEntityReminders('med-123');
       
       expect(Notifications.cancelScheduledNotificationAsync).toHaveBeenCalledTimes(2);
-      expect(AsyncStorage.setItem).toHaveBeenCalledWith('@notification_map', '{}');
+      expect(setItem).toHaveBeenCalledWith('@notification_map', '{}');
+    });
+  });
+
+  describe('mapping', () => {
+    it('should return empty array if no mapping exists', async () => {
+      (getItem as jest.Mock).mockResolvedValue(null);
+      const ids = await getNotificationIds('med-123');
+      expect(ids).toEqual([]);
+    });
+
+    it('should add to existing mapping', async () => {
+      (getItem as jest.Mock).mockResolvedValue(JSON.stringify({ 'med-123': ['old-id'] }));
+      await addNotificationId('med-123', 'new-id');
+      expect(setItem).toHaveBeenCalledWith(
+        '@notification_map',
+        expect.stringContaining('"new-id"')
+      );
+    });
+
+    it('should clear mapping', async () => {
+      (getItem as jest.Mock).mockResolvedValue(JSON.stringify({ 'med-123': ['id1', 'id2'] }));
+      await clearNotificationIds('med-123');
+      expect(setItem).toHaveBeenCalledWith('@notification_map', '{}');
     });
   });
 });

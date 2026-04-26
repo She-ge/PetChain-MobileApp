@@ -1,4 +1,4 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getItem, setItem, removeItem } from '../services/localDB';
 
 import type { Pet } from '../models/Pet';
 
@@ -85,13 +85,13 @@ export const decodePayload = (raw: string): Record<string, unknown> => {
  */
 export const cacheQRPayload = async (petId: string, payload: string): Promise<void> => {
   const entry: CachedQR = { petId, payload, cachedAt: Date.now() };
-  await AsyncStorage.setItem(`${QR_CACHE_PREFIX}${petId}`, JSON.stringify(entry));
+  await setItem(`${QR_CACHE_PREFIX}${petId}`, JSON.stringify(entry));
 
   // Keep an index of cached pet IDs
   const index = await getCacheIndex();
   if (!index.includes(petId)) {
     index.push(petId);
-    await AsyncStorage.setItem(QR_CACHE_INDEX_KEY, JSON.stringify(index));
+    await setItem(QR_CACHE_INDEX_KEY, JSON.stringify(index));
   }
 };
 
@@ -100,7 +100,7 @@ export const cacheQRPayload = async (petId: string, payload: string): Promise<vo
  * Returns null if not cached or if the cache has expired.
  */
 export const getCachedQRPayload = async (petId: string): Promise<string | null> => {
-  const raw = await AsyncStorage.getItem(`${QR_CACHE_PREFIX}${petId}`);
+  const raw = await getItem(`${QR_CACHE_PREFIX}${petId}`);
   if (!raw) return null;
 
   const entry: CachedQR = JSON.parse(raw);
@@ -115,9 +115,9 @@ export const getCachedQRPayload = async (petId: string): Promise<string | null> 
  * Remove a single pet's cached QR.
  */
 export const clearCachedQR = async (petId: string): Promise<void> => {
-  await AsyncStorage.removeItem(`${QR_CACHE_PREFIX}${petId}`);
+  await removeItem(`${QR_CACHE_PREFIX}${petId}`);
   const index = await getCacheIndex();
-  await AsyncStorage.setItem(
+  await setItem(
     QR_CACHE_INDEX_KEY,
     JSON.stringify(index.filter((id) => id !== petId)),
   );
@@ -128,8 +128,8 @@ export const clearCachedQR = async (petId: string): Promise<void> => {
  */
 export const clearAllCachedQRs = async (): Promise<void> => {
   const index = await getCacheIndex();
-  await Promise.all(index.map((id) => AsyncStorage.removeItem(`${QR_CACHE_PREFIX}${id}`)));
-  await AsyncStorage.removeItem(QR_CACHE_INDEX_KEY);
+  await Promise.all(index.map((id) => removeItem(`${QR_CACHE_PREFIX}${id}`)));
+  await removeItem(QR_CACHE_INDEX_KEY);
 };
 
 /**
@@ -145,6 +145,6 @@ export const extractPetFromPayload = (payload: Record<string, unknown>): Partial
 // ─── Private helpers ──────────────────────────────────────────────────────────
 
 const getCacheIndex = async (): Promise<string[]> => {
-  const raw = await AsyncStorage.getItem(QR_CACHE_INDEX_KEY);
+  const raw = await getItem(QR_CACHE_INDEX_KEY);
   return raw ? JSON.parse(raw) : [];
 };

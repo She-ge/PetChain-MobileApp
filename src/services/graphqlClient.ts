@@ -1,5 +1,5 @@
 import { createClient, fetchExchange, type Client, type Operation } from '@urql/core';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getItem } from './localDB';
 import { makeOperation } from '@urql/core';
 
 import config from '../config';
@@ -9,7 +9,7 @@ const ACCESS_TOKEN_KEY = '@access_token';
 const authExchange = () => ({
   name: 'authExchange',
   async applyAuth(operation: Operation): Promise<Operation> {
-    const token = await AsyncStorage.getItem(ACCESS_TOKEN_KEY);
+    const token = await getItem(ACCESS_TOKEN_KEY);
     if (!token) return operation;
     return makeOperation(operation.kind, operation, {
       ...operation.context,
@@ -35,7 +35,7 @@ export async function gqlRequest<T>(
   query: string,
   variables?: Record<string, unknown>,
 ): Promise<T> {
-  const token = await AsyncStorage.getItem(ACCESS_TOKEN_KEY);
+  const token = await getItem(ACCESS_TOKEN_KEY);
   const result = await client.query<T>(query, variables ?? {}, {
     fetchOptions: {
       headers: {

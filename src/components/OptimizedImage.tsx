@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Image, ImageProps, View, ActivityIndicator, StyleSheet } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getItem } from '../services/localDB';
 import { cacheManager } from '../services/cacheManager';
 
 interface OptimizedImageProps extends ImageProps {
@@ -40,7 +40,7 @@ export const OptimizedImage: React.FC<OptimizedImageProps> = ({
 
         // 1. Check persistent cache (simulated)
         const cacheKey = `${IMAGE_CACHE_PREFIX}${uri}`;
-        const cachedData = await AsyncStorage.getItem(cacheKey);
+        const cachedData = await getItem(cacheKey);
 
         if (cachedData && isMounted) {
           cacheManager.set(uri, cachedData);
