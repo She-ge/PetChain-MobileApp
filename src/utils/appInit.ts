@@ -1,4 +1,4 @@
-import { startNetworkMonitoring } from './networkMonitor';
+import { networkMonitor } from './networkMonitor';
 import { requestPermissions } from '../services/notificationService';
 import { runMigrations } from '../migrations/migrationRunner';
 

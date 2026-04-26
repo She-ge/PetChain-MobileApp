@@ -62,6 +62,34 @@ interface ApiResponse<T> {
   message?: string;
 }
 
+import { getItem, setItem, removeItem } from './localDB';
+import offlineQueue from './offlineQueue';
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+const PETS_CACHE_KEY = '@pets_list';
+const PET_CACHE_PREFIX = '@pet_';
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+async function cachePets(pets: Pet[]): Promise<void> {
+  await setItem(PETS_CACHE_KEY, JSON.stringify(pets));
+  // Also cache individual pets
+  await Promise.all(
+    pets.map((pet) => setItem(`${PET_CACHE_PREFIX}${pet.id}`, JSON.stringify(pet)))
+  );
+}
+
+async function getCachedPets(): Promise<Pet[]> {
+  const cached = await getItem(PETS_CACHE_KEY);
+  return cached ? JSON.parse(cached) : [];
+}
+
+async function getCachedPet(petId: string): Promise<Pet | null> {
+  const cached = await getItem(`${PET_CACHE_PREFIX}${petId}`);
+  return cached ? JSON.parse(cached) : null;
+}
+
 // ─────────────────────────────────────────────
 // ERROR CLASS
 // ─────────────────────────────────────────────
@@ -163,8 +191,12 @@ function toPetServiceError(error: unknown, context: Record<string, any>): PetSer
 export async function getAllPets(): Promise<Pet[]> {
   try {
     const response = await apiClient.get<ApiResponse<Pet[]> | Pet[]>('/pets');
-    return unwrapApiData(response.data);
+    const pets = unwrapApiData(response.data);
+    await cachePets(pets);
+    return pets;
   } catch (error) {
+    const cached = await getCachedPets();
+    if (cached.length > 0) return cached;
     throw toPetServiceError(error, { action: 'get_all_pets' });
   }
 }
@@ -179,8 +211,12 @@ export async function getPetById(petId: string): Promise<Pet> {
 
   try {
     const response = await apiClient.get(`/pets/${encodeURIComponent(id)}`);
-    return unwrapApiData(response.data);
+    const pet = unwrapApiData(response.data);
+    await setItem(`${PET_CACHE_PREFIX}${pet.id}`, JSON.stringify(pet));
+    return pet;
   } catch (error) {
+    const cached = await getCachedPet(id);
+    if (cached) return cached;
     throw toPetServiceError(error, { action: 'get_pet_by_id', petId: id });
   }
 }
@@ -196,12 +232,24 @@ export async function getPetByQRCode(qrCode: string): Promise<Pet> {
 
   try {
     const response = await apiClient.get(`/pets/qr/${encodeURIComponent(value)}`);
-    return unwrapApiData(response.data);
+    const pet = unwrapApiData(response.data);
+    await setItem(`${PET_CACHE_PREFIX}${pet.id}`, JSON.stringify(pet));
+    return pet;
   } catch (error) {
-    if (axios.isAxiosError(error) && error.response?.status === 404) {
-      const parsed = parseQRCodeData(value);
-      if (parsed?.petId) {
-        return getPetById(parsed.petId);
+    if (axios.isAxiosError(error)) {
+      if (error.response?.status === 404) {
+        const parsed = parseQRCodeData(value);
+        if (parsed?.petId) {
+          return getPetById(parsed.petId);
+        }
+      }
+      // If offline
+      if (!error.response) {
+        const parsed = parseQRCodeData(value);
+        if (parsed?.petId) {
+          const cached = await getCachedPet(parsed.petId);
+          if (cached) return cached;
+        }
       }
     }
 
@@ -214,9 +262,31 @@ export async function getPetByQRCode(qrCode: string): Promise<Pet> {
 
 export async function createPet(data: CreatePetInput): Promise<Pet> {
   try {
+    // If online, this will go through, otherwise it throws and we catch
     const response = await apiClient.post('/pets', data);
-    return unwrapApiData(response.data);
+    const pet = unwrapApiData(response.data);
+    await setItem(`${PET_CACHE_PREFIX}${pet.id}`, JSON.stringify(pet));
+    return pet;
   } catch (error) {
+    // Check if it's a network error
+    if (axios.isAxiosError(error) && !error.response) {
+      const tempId = `temp_${Date.now()}`;
+      const newPet: Pet = {
+        ...data,
+        id: tempId,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      await offlineQueue.enqueue('pet', 'create', newPet as any);
+      await setItem(`${PET_CACHE_PREFIX}${tempId}`, JSON.stringify(newPet));
+      
+      // Update pets list cache
+      const list = await getCachedPets();
+      list.push(newPet);
+      await setItem(PETS_CACHE_KEY, JSON.stringify(list));
+      
+      return newPet;
+    }
     throw toPetServiceError(error, { action: 'create_pet' });
   }
 }
@@ -232,8 +302,28 @@ export async function updatePet(petId: string, data: UpdatePetInput): Promise<Pe
 
   try {
     const response = await apiClient.put(`/pets/${encodeURIComponent(id)}`, data);
-    return unwrapApiData(response.data);
+    const pet = unwrapApiData(response.data);
+    await setItem(`${PET_CACHE_PREFIX}${pet.id}`, JSON.stringify(pet));
+    return pet;
   } catch (error) {
+    if (axios.isAxiosError(error) && !error.response) {
+      const current = await getCachedPet(id);
+      if (current) {
+        const updatedPet = { ...current, ...data, updatedAt: new Date().toISOString() };
+        await offlineQueue.enqueue('pet', 'update', { id, ...data });
+        await setItem(`${PET_CACHE_PREFIX}${id}`, JSON.stringify(updatedPet));
+        
+        // Update list cache
+        const list = await getCachedPets();
+        const idx = list.findIndex(p => p.id === id);
+        if (idx >= 0) {
+          list[idx] = updatedPet;
+          await setItem(PETS_CACHE_KEY, JSON.stringify(list));
+        }
+        
+        return updatedPet;
+      }
+    }
     throw toPetServiceError(error, { action: 'update_pet', petId: id });
   }
 }
@@ -249,7 +339,17 @@ export async function deletePet(petId: string): Promise<void> {
 
   try {
     await apiClient.delete(`/pets/${encodeURIComponent(id)}`);
+    await removeItem(`${PET_CACHE_PREFIX}${id}`);
+    const list = await getCachedPets();
+    await setItem(PETS_CACHE_KEY, JSON.stringify(list.filter(p => p.id !== id)));
   } catch (error) {
+    if (axios.isAxiosError(error) && !error.response) {
+      await offlineQueue.enqueue('pet', 'delete', { id });
+      await removeItem(`${PET_CACHE_PREFIX}${id}`);
+      const list = await getCachedPets();
+      await setItem(PETS_CACHE_KEY, JSON.stringify(list.filter(p => p.id !== id)));
+      return;
+    }
     throw toPetServiceError(error, { action: 'delete_pet', petId: id });
   }
 }
