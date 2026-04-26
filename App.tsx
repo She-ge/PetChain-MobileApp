@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
+import './src/i18n';
 import { useSplashGuard } from './src/components/SplashGuard';
 import AppNavigator from './src/navigation';
 
