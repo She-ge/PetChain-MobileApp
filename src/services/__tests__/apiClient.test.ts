@@ -1,6 +1,9 @@
 import axios from 'axios';
-import apiClient, { resilientRequest, getCircuitState } from '../apiClient';
 import { getToken } from '../authService';
+
+let apiClient: any;
+let resilientRequest: any;
+let getCircuitState: any;
 
 // Mock dependencies
 jest.mock('axios', () => {
@@ -19,14 +22,22 @@ jest.mock('../authService', () => ({
   getToken: jest.fn(),
 }));
 
-jest.mock('../config', () => ({
+jest.mock('../../config', () => ({
   api: {
     baseUrl: 'https://api.test.com',
     timeoutMs: 1000,
+    version: '1.0',
   },
 }));
 
 describe('apiClient', () => {
+  beforeAll(() => {
+    const mod = require('../apiClient');
+    apiClient = mod.default;
+    resilientRequest = mod.resilientRequest;
+    getCircuitState = mod.getCircuitState;
+  });
+
   beforeEach(() => {
     jest.clearAllMocks();
     // Reset circuit state if possible - since it's a module-level variable, 
@@ -39,8 +50,9 @@ describe('apiClient', () => {
       const mockToken = 'test-token';
       (getToken as jest.Mock).mockResolvedValue(mockToken);
       
-      const interceptor = (apiClient.interceptors.request.use as jest.Mock).mock.calls[0][0];
-      const config = { headers: {} };
+      const useMock = apiClient.interceptors.request.use as jest.Mock;
+      const interceptor = useMock.mock.calls.find(call => typeof call[0] === 'function')[0];
+      const config = { headers: {} } as any;
       const updatedConfig = await interceptor(config);
       
       expect(updatedConfig.headers.Authorization).toBe(`Bearer ${mockToken}`);
@@ -49,8 +61,9 @@ describe('apiClient', () => {
     it('should not add Authorization header if token does not exist', async () => {
       (getToken as jest.Mock).mockResolvedValue(null);
       
-      const interceptor = (apiClient.interceptors.request.use as jest.Mock).mock.calls[0][0];
-      const config = { headers: {} };
+      const useMock = apiClient.interceptors.request.use as jest.Mock;
+      const interceptor = useMock.mock.calls.find(call => typeof call[0] === 'function')[0];
+      const config = { headers: {} } as any;
       const updatedConfig = await interceptor(config);
       
       expect(updatedConfig.headers.Authorization).toBeUndefined();

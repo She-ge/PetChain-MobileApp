@@ -2,10 +2,11 @@ import { getItem, setItem } from '../services/localDB';
 import type { Migration, MigrationRecord, MigrationResult } from './types';
 import v1 from './scripts/v1_baseline';
 import v2 from './scripts/v2_medication_fields';
+import v3 from './scripts/v3_resilient_init';
 
 // ─── Registry ─────────────────────────────────────────────────────────────────
 // Add new migrations here in ascending version order.
-const ALL_MIGRATIONS: Migration[] = [v1, v2];
+const ALL_MIGRATIONS: Migration[] = [v1, v2, v3];
 
 const MIGRATION_LOG_KEY = '@migration_log';
 const SCHEMA_VERSION_KEY = '@schema_version';

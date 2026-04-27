@@ -78,6 +78,7 @@ let apiClient: AxiosInstance = axios.create({
   headers: {
     'Content-Type': 'application/json',
     Accept: 'application/json',
+    'X-API-Version': config.api.version,
   },
 });
 

@@ -17,6 +17,23 @@ export interface Pet {
   updatedAt: string;
 }
 
+/**
+ * Factory to safely create a Pet object from raw data, 
+ * ensuring all required fields have sensible defaults.
+ */
+export const createPet = (data: Partial<Pet>): Pet => ({
+  id: data.id || '',
+  name: data.name || 'Unknown Pet',
+  species: data.species || 'other',
+  breed: data.breed,
+  dateOfBirth: data.dateOfBirth,
+  microchipId: data.microchipId,
+  photoUrl: data.photoUrl,
+  ownerId: data.ownerId || '',
+  createdAt: data.createdAt || new Date().toISOString(),
+  updatedAt: data.updatedAt || new Date().toISOString(),
+});
+
 export interface PetFormData {
   name: string;
   species: Species;

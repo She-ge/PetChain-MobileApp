@@ -1,0 +1,10 @@
+import apiClient from '../apiClient';
+import config from '../../config';
+
+describe('API Versioning Header', () => {
+  it('should include X-API-Version header in the default axios instance', () => {
+    const headers = apiClient.defaults.headers as any;
+    expect(headers['X-API-Version']).toBe(config.api.version);
+    expect(headers['X-API-Version']).toBe('1.0');
+  });
+});

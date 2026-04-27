@@ -27,6 +27,7 @@ const config = {
     baseUrl: API_URLS[APP_ENV],
     timeoutMs: Number(env('API_TIMEOUT', '10000')),
     maxRetries: 3,
+    version: '1.0',
   },
 
   cache: {
