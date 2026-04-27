@@ -26,6 +26,15 @@ export interface Vaccination {
   petId: string;
 }
 
+export interface ScheduledNotification {
+  id: string;
+  title: string;
+  body: string;
+  scheduledDate: string; // ISO date string
+  data?: Record<string, unknown>; // additional data
+  categoryIdentifier?: string;
+}
+
 export interface NotificationPreferences {
   medicationReminders: boolean;
   appointmentReminders: boolean;
@@ -40,7 +49,7 @@ export interface NotificationPreferences {
   petOverrides: { petId: string; medicationReminders?: boolean; appointmentReminders?: boolean; vaccinationAlerts?: boolean }[];
 }
 
-export type NotificationGroup = 'medication' | 'appointment' | 'vaccination' | 'alert';
+export type NotificationGroup = 'medication' | 'appointment' | 'vaccination' | 'alert' | 'scheduled';
 
 const PREFS_KEY = '@notification_preferences';
 const NOTIFICATION_MAP_KEY = '@notification_map'; // maps entity id -> notification ids
@@ -323,4 +332,52 @@ export const getScheduledByGroup = async (
 
 export const getAllScheduled = async (): Promise<Notifications.NotificationRequest[]> => {
   return Notifications.getAllScheduledNotificationsAsync();
+};
+
+// ─── Generic Scheduled Notifications ──────────────────────────────────────────
+
+export const scheduleFutureNotification = async (
+  notification: ScheduledNotification,
+): Promise<string> => {
+  const prefs = await getPreferences();
+  const scheduledDate = new Date(notification.scheduledDate);
+
+  if (scheduledDate <= new Date()) {
+    throw new Error('Scheduled date must be in the future');
+  }
+
+  const notificationId = await Notifications.scheduleNotificationAsync({
+    content: {
+      title: notification.title,
+      body: notification.body,
+      sound: prefs.soundEnabled ? 'default' : undefined,
+      data: { type: 'scheduled' as NotificationGroup, notificationId: notification.id, ...notification.data },
+      categoryIdentifier: notification.categoryIdentifier || 'scheduled',
+    },
+    trigger: {
+      type: 'date',
+      date: scheduledDate,
+    } as Notifications.DateTriggerInput,
+  });
+
+  // Store the mapping
+  const map = await getNotificationMap();
+  map[notification.id] = [notificationId];
+  await setItem(NOTIFICATION_MAP_KEY, JSON.stringify(map));
+
+  return notificationId;
+};
+
+export const updateScheduledNotification = async (
+  notification: ScheduledNotification,
+): Promise<string> => {
+  // Cancel existing notification
+  await cancelEntityNotification(notification.id);
+
+  // Schedule new one
+  return scheduleFutureNotification(notification);
+};
+
+export const cancelScheduledNotification = async (notificationId: string): Promise<void> => {
+  await cancelEntityNotification(notificationId);
 };
