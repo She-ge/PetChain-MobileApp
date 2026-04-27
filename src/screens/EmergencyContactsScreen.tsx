@@ -16,6 +16,7 @@ import emergencyService, {
   type EmergencyContact,
   type VetClinic,
 } from "../services/emergencyService";
+import SOSButton from "../components/SOSButton";
 import { useSecureScreen } from "../utils/secureScreen";
 import { formatWeight, formatAddress } from "../utils/localeValues";
 
@@ -85,30 +86,9 @@ const EmergencyContactsScreen: React.FC = () => {
     }
   };
 
-  const handleSOS = () => {
-    Alert.alert(
-      "🚨 SOS Emergency",
-      "This will call your nearest 24h emergency vet and share your location. Continue?",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "CALL NOW",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              await emergencyService.triggerSOS(
-                "Pet emergency - need immediate help",
-              );
-            } catch (e: unknown) {
-              Alert.alert(
-                "SOS Error",
-                e instanceof Error ? e.message : "SOS failed.",
-              );
-            }
-          },
-        },
-      ],
-    );
+  const handleSOSSent = () => {
+    // Optionally show a confirmation or log
+    console.log("SOS alerts dispatched.");
   };
 
   const openAddModal = () => {
@@ -239,13 +219,7 @@ const EmergencyContactsScreen: React.FC = () => {
 
   return (
     <View style={styles.container}>
-      <TouchableOpacity
-        style={styles.sosButton}
-        onPress={handleSOS}
-        accessibilityLabel="SOS Emergency"
-      >
-        <Text style={styles.sosText}>🚨 SOS EMERGENCY</Text>
-      </TouchableOpacity>
+      <SOSButton onSOSSent={handleSOSSent} />
 
       <View style={styles.tabs}>
         <TouchableOpacity
