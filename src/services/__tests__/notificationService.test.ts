@@ -1,12 +1,18 @@
-import { getItem, setItem } from '../localDB';
+import { getItem, setItem, removeItem } from '../localDB';
 import * as Notifications from 'expo-notifications';
-import { 
-  requestPermissions, 
-  checkPermissions, 
-  getPreferences, 
+import {
+  requestPermissions,
+  checkPermissions,
+  getPreferences,
   savePreferences,
-  scheduleMedicationReminders,
-  cancelEntityReminders
+  scheduleMedicationReminder,
+  scheduleAppointmentNotification,
+  scheduleVaccinationReminder,
+  cancelEntityNotification,
+  scheduleFutureNotification,
+  updateScheduledNotification,
+  cancelScheduledNotification,
+  type ScheduledNotification,
 } from '../notificationService';
 
 jest.mock('../localDB', () => ({
@@ -21,6 +27,7 @@ jest.mock('expo-notifications', () => ({
   setNotificationHandler: jest.fn(),
   scheduleNotificationAsync: jest.fn(),
   cancelScheduledNotificationAsync: jest.fn(),
+  getAllScheduledNotificationsAsync: jest.fn(),
 }));
 
 describe('notificationService', () => {
@@ -59,7 +66,7 @@ describe('notificationService', () => {
     });
   });
 
-  describe('scheduling', () => {
+  describe('medication reminders', () => {
     const mockMedication = {
       id: 'med-123',
       name: 'Aspirin',
@@ -71,9 +78,9 @@ describe('notificationService', () => {
     it('should schedule medication reminders', async () => {
       (getItem as jest.Mock).mockResolvedValue(null);
       (Notifications.scheduleNotificationAsync as jest.Mock).mockResolvedValue('notif-id-123');
-      
-      await scheduleMedicationReminders(mockMedication);
-      
+
+      await scheduleMedicationReminder(mockMedication);
+
       expect(Notifications.scheduleNotificationAsync).toHaveBeenCalled();
       expect(setItem).toHaveBeenCalledWith(
         '@notification_map',
@@ -82,42 +89,130 @@ describe('notificationService', () => {
     });
 
     it('should cancel existing reminders before scheduling new ones', async () => {
-      (getItem as jest.Mock).mockResolvedValue(JSON.stringify({ 'med-123': ['old-id'] }));
-      
-      await scheduleMedicationReminders(mockMedication);
-      
-      expect(Notifications.cancelScheduledNotificationAsync).toHaveBeenCalledWith('old-id');
-    });
+      (getItem as jest.Mock)
+        .mockResolvedValueOnce(JSON.stringify({ 'med-123': ['old-id'] })) // for getNotificationMap
+        .mockResolvedValueOnce(null); // for getPreferences
+      (Notifications.scheduleNotificationAsync as jest.Mock).mockResolvedValue('new-id');
 
-    it('should cancel all reminders for an entity', async () => {
-      (getItem as jest.Mock).mockResolvedValue(JSON.stringify({ 'med-123': ['id1', 'id2'] }));
-      
-      await cancelEntityReminders('med-123');
-      
-      expect(Notifications.cancelScheduledNotificationAsync).toHaveBeenCalledTimes(2);
-      expect(setItem).toHaveBeenCalledWith('@notification_map', '{}');
+      await scheduleMedicationReminder(mockMedication);
+
+      expect(Notifications.cancelScheduledNotificationAsync).toHaveBeenCalledWith('old-id');
     });
   });
 
-  describe('mapping', () => {
-    it('should return empty array if no mapping exists', async () => {
-      (getItem as jest.Mock).mockResolvedValue(null);
-      const ids = await getNotificationIds('med-123');
-      expect(ids).toEqual([]);
-    });
+  describe('appointment notifications', () => {
+    const mockAppointment = {
+      id: 'appt-123',
+      title: 'Vet Visit',
+      date: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // tomorrow
+    };
 
-    it('should add to existing mapping', async () => {
-      (getItem as jest.Mock).mockResolvedValue(JSON.stringify({ 'med-123': ['old-id'] }));
-      await addNotificationId('med-123', 'new-id');
-      expect(setItem).toHaveBeenCalledWith(
-        '@notification_map',
-        expect.stringContaining('"new-id"')
+    it('should schedule appointment notification', async () => {
+      (getItem as jest.Mock).mockResolvedValue(null);
+      (Notifications.scheduleNotificationAsync as jest.Mock).mockResolvedValue('appt-notif-id');
+
+      const result = await scheduleAppointmentNotification(mockAppointment);
+
+      expect(result).toBe('appt-notif-id');
+      expect(Notifications.scheduleNotificationAsync).toHaveBeenCalled();
+    });
+  });
+
+  describe('vaccination reminders', () => {
+    const mockVaccination = {
+      id: 'vac-123',
+      name: 'Rabies Vaccine',
+      dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // next week
+      petId: 'pet-123',
+    };
+
+    it('should schedule vaccination reminder', async () => {
+      (getItem as jest.Mock).mockResolvedValue(null);
+      (Notifications.scheduleNotificationAsync as jest.Mock).mockResolvedValue('vac-notif-id');
+
+      const result = await scheduleVaccinationReminder(mockVaccination);
+
+      expect(result).toBe('vac-notif-id');
+      expect(Notifications.scheduleNotificationAsync).toHaveBeenCalled();
+    });
+  });
+
+  describe('generic scheduled notifications', () => {
+    const futureDate = new Date(Date.now() + 60 * 60 * 1000).toISOString(); // 1 hour from now
+
+    const mockScheduledNotification: ScheduledNotification = {
+      id: 'sched-123',
+      title: 'Custom Reminder',
+      body: 'This is a custom notification',
+      scheduledDate: futureDate,
+      data: { customData: 'test' },
+    };
+
+    it('should schedule future notification', async () => {
+      (getItem as jest.Mock).mockResolvedValue(null);
+      (Notifications.scheduleNotificationAsync as jest.Mock).mockResolvedValue('sched-notif-id');
+
+      const result = await scheduleFutureNotification(mockScheduledNotification);
+
+      expect(result).toBe('sched-notif-id');
+      expect(Notifications.scheduleNotificationAsync).toHaveBeenCalledWith(
+        expect.objectContaining({
+          content: expect.objectContaining({
+            title: 'Custom Reminder',
+            body: 'This is a custom notification',
+            data: expect.objectContaining({
+              type: 'scheduled',
+              notificationId: 'sched-123',
+              customData: 'test',
+            }),
+          }),
+          trigger: expect.objectContaining({
+            type: 'date',
+            date: new Date(futureDate),
+          }),
+        })
       );
     });
 
-    it('should clear mapping', async () => {
-      (getItem as jest.Mock).mockResolvedValue(JSON.stringify({ 'med-123': ['id1', 'id2'] }));
-      await clearNotificationIds('med-123');
+    it('should throw error for past date', async () => {
+      const pastNotification: ScheduledNotification = {
+        ...mockScheduledNotification,
+        scheduledDate: new Date(Date.now() - 60 * 60 * 1000).toISOString(), // 1 hour ago
+      };
+
+      await expect(scheduleFutureNotification(pastNotification)).rejects.toThrow(
+        'Scheduled date must be in the future'
+      );
+    });
+
+    it('should update scheduled notification', async () => {
+      (getItem as jest.Mock)
+        .mockResolvedValueOnce(JSON.stringify({ 'sched-123': ['old-id'] })) // for cancel
+        .mockResolvedValueOnce(null); // for schedule
+      (Notifications.scheduleNotificationAsync as jest.Mock).mockResolvedValue('new-sched-id');
+
+      const result = await updateScheduledNotification(mockScheduledNotification);
+
+      expect(Notifications.cancelScheduledNotificationAsync).toHaveBeenCalledWith('old-id');
+      expect(result).toBe('new-sched-id');
+    });
+
+    it('should cancel scheduled notification', async () => {
+      (getItem as jest.Mock).mockResolvedValue(JSON.stringify({ 'sched-123': ['notif-id'] }));
+
+      await cancelScheduledNotification('sched-123');
+
+      expect(Notifications.cancelScheduledNotificationAsync).toHaveBeenCalledWith('notif-id');
+    });
+  });
+
+  describe('cancel operations', () => {
+    it('should cancel entity notification', async () => {
+      (getItem as jest.Mock).mockResolvedValue(JSON.stringify({ 'entity-123': ['id1', 'id2'] }));
+
+      await cancelEntityNotification('entity-123');
+
+      expect(Notifications.cancelScheduledNotificationAsync).toHaveBeenCalledTimes(2);
       expect(setItem).toHaveBeenCalledWith('@notification_map', '{}');
     });
   });
