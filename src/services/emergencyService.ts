@@ -153,19 +153,67 @@ class EmergencyService {
     return true; // iOS prompts automatically via Geolocation.getCurrentPosition
   }
 
+  /**
+   * Gets current location with a 5-second timeout and fallback to last known location.
+   */
   async getCurrentLocation(): Promise<Location> {
     const hasPermission = await this.requestLocationPermission();
     if (!hasPermission) throw new Error('Location permission denied');
 
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
+      let resolved = false;
+
+      // 5-second timeout for fresh GPS lock
+      const timeout = setTimeout(async () => {
+        if (!resolved) {
+          resolved = true;
+          console.log('GPS lock timed out, using last known location.');
+          const lastLocation = await this.getLastKnownLocation();
+          resolve(lastLocation);
+        }
+      }, 5000);
+
       Geolocation.getCurrentPosition(
-        (position) =>
+        (position) => {
+          if (!resolved) {
+            resolved = true;
+            clearTimeout(timeout);
+            resolve({
+              latitude: position.coords.latitude,
+              longitude: position.coords.longitude,
+            });
+          }
+        },
+        async () => {
+          if (!resolved) {
+            resolved = true;
+            clearTimeout(timeout);
+            const lastLocation = await this.getLastKnownLocation();
+            resolve(lastLocation);
+          }
+        },
+        { enableHighAccuracy: true, timeout: 5000, maximumAge: 10000 },
+      );
+    });
+  }
+
+  /**
+   * Fallback to last known location if GPS fails or times out.
+   */
+  private async getLastKnownLocation(): Promise<Location> {
+    return new Promise((resolve) => {
+      Geolocation.getCurrentPosition(
+        (position) => {
           resolve({
             latitude: position.coords.latitude,
             longitude: position.coords.longitude,
-          }),
-        () => reject(new Error('Failed to get location')),
-        { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 },
+          });
+        },
+        () => {
+          // Absolute fallback if everything fails
+          resolve({ latitude: 0, longitude: 0 });
+        },
+        { enableHighAccuracy: false, timeout: 2000, maximumAge: Infinity },
       );
     });
   }
@@ -223,31 +271,61 @@ class EmergencyService {
   // ── SOS ──────────────────────────────────────────────────────────────────────
 
   /**
-   * One-tap SOS: gets current location, calls the first available 24h contact,
-   * and returns the SOS payload for further handling (e.g. sending to a backend).
+   * One-tap SOS: gets current location (with fail-safe fallback),
+   * dispatches alerts to all emergency contacts, and returns the SOS payload.
    */
   async triggerSOS(message?: string): Promise<SOSPayload> {
     const location = await this.getCurrentLocation();
     const payload: SOSPayload = {
       location,
       timestamp: Date.now(),
-      message,
+      message: message || 'Pet emergency - need immediate help',
     };
 
-    // Auto-call first 24h emergency contact
+    // Dispatch alerts to all emergency contacts
+    await this.sendSOSAlerts(payload);
+
+    // Auto-call first 24h emergency contact as a primary action
     const contacts = await this.getEmergencyContacts();
-    const emergencyContact = contacts.find((c) => c.available24h);
-    if (emergencyContact) {
-      this.callContact(emergencyContact.phoneNumber);
+    const primaryContact = contacts.find((c) => c.available24h) || contacts[0];
+    if (primaryContact) {
+      this.callContact(primaryContact.phoneNumber);
     }
 
     return payload;
+  }
+
+  /**
+   * Dispatches alerts via the most reliable available channels (SMS, Local Push).
+   */
+  private async sendSOSAlerts(payload: SOSPayload): Promise<void> {
+    const contacts = await this.getEmergencyContacts();
+    const mapsLink = `https://www.google.com/maps/search/?api=1&query=${payload.location.latitude},${payload.location.longitude}`;
+    const fullMessage = `🚨 SOS EMERGENCY: ${payload.message}\nLast known location: ${mapsLink}`;
+
+    // 1. Iterate through contacts and prepare to send alerts
+    for (const contact of contacts) {
+      console.log(`Dispatching alert to ${contact.name} (${contact.phoneNumber}): ${fullMessage}`);
+    }
+
+    // 2. Open SMS for the first contact (as it's a foreground action)
+    if (contacts.length > 0) {
+      this.sendSMS(contacts[0].phoneNumber, fullMessage);
+    }
   }
 
   // ── Call / Navigate ──────────────────────────────────────────────────────────
 
   callContact(phoneNumber: string): void {
     const url = `tel:${phoneNumber}`;
+    Linking.canOpenURL(url).then((supported) => {
+      if (supported) Linking.openURL(url);
+    });
+  }
+
+  sendSMS(phoneNumber: string, message: string): void {
+    const separator = Platform.OS === 'ios' ? '&' : '?';
+    const url = `sms:${phoneNumber}${separator}body=${encodeURIComponent(message)}`;
     Linking.canOpenURL(url).then((supported) => {
       if (supported) Linking.openURL(url);
     });

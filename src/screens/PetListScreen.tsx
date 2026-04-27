@@ -11,6 +11,7 @@ import {
 
 import { HeaderOfflineStatus, useOfflineStatus } from '../components/OfflineIndicator';
 import { OptimizedImage } from '../components/OptimizedImage';
+import SOSButton from '../components/SOSButton';
 import petService, { type Pet } from '../services/petService';
 
 interface Props {
@@ -115,6 +116,8 @@ const PetListScreen: React.FC<Props> = ({ onSelectPet, onAddPet }) => {
           refreshing={loading}
         />
       )}
+      
+      <SOSButton style={styles.floatingSOS} />
     </View>
   );
 };
@@ -182,6 +185,14 @@ const styles = StyleSheet.create({
   },
   chevron: { fontSize: 22, color: '#bbb' },
   empty: { textAlign: 'center', color: '#999', marginTop: 40, fontSize: 15 },
+  floatingSOS: {
+    position: 'absolute',
+    bottom: 20,
+    left: 20,
+    right: 20,
+    margin: 0,
+    zIndex: 10,
+  },
 });
 
 export default PetListScreen;
