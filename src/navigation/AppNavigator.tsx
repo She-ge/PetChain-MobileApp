@@ -5,12 +5,12 @@ import React from 'react';
 
 import type { RootStackParamList, MainTabParamList, PetStackParamList } from './types';
 import { DEEP_LINK_PREFIX } from './types';
-import analyticsService from '../services/analyticsService';
 import type { Pet } from '../models/Pet';
-import MedicalRecordSearchScreen from '../screens/MedicalRecordSearchScreen';
+import AppointmentScreen from '../screens/AppointmentScreen';
 import AuthNavigator from '../screens/AuthNavigator';
 import EmergencyContactsScreen from '../screens/EmergencyContactsScreen';
 import ManualEntryScreen from '../screens/ManualEntryScreen';
+import MedicalRecordSearchScreen from '../screens/MedicalRecordSearchScreen';
 import MedicationScreen from '../screens/MedicationScreen';
 import OnboardingScreen from '../screens/OnboardingScreen';
 import PetDetailScreen from '../screens/PetDetailScreen';
@@ -19,6 +19,7 @@ import PetHealthMetricsScreen from '../screens/PetHealthMetricsScreen';
 import PetListScreen from '../screens/PetListScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import QRScannerScreen from '../screens/QRScannerScreen';
+import analyticsService from '../services/analyticsService';
 
 const RootStack = createNativeStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<MainTabParamList>();
@@ -75,16 +76,22 @@ function PetNavigator() {
           />
         )}
       </PetStack.Screen>
-      <PetStack.Screen name="NotificationPreferences" options={{ title: 'Notification Preferences' }}>
-        {({ navigation }) => (
-          <NotificationPreferencesScreen onBack={() => navigation.goBack()} />
-        )}
+      <PetStack.Screen
+        name="NotificationPreferences"
+        options={{ title: 'Notification Preferences' }}
+      >
+        {({ navigation }) => <NotificationPreferencesScreen onBack={() => navigation.goBack()} />}
       </PetStack.Screen>
       <PetStack.Screen name="DeleteAccount" options={{ title: 'Delete Account' }}>
         {({ navigation }) => (
           <DeleteAccountScreen
             onBack={() => navigation.goBack()}
-            onDeleted={() => navigation.getParent()?.getParent()?.reset({ index: 0, routes: [{ name: 'Auth' }] })}
+            onDeleted={() =>
+              navigation
+                .getParent()
+                ?.getParent()
+                ?.reset({ index: 0, routes: [{ name: 'Auth' }] })
+            }
           />
         )}
       </PetStack.Screen>
@@ -105,6 +112,11 @@ function MainTabs() {
         name="Medications"
         component={MedicationScreen}
         options={{ title: 'Medications' }}
+      />
+      <Tab.Screen
+        name="Appointments"
+        component={AppointmentScreen}
+        options={{ title: 'Appointments' }}
       />
       <Tab.Screen
         name="Emergency"
@@ -134,6 +146,7 @@ const linking: LinkingOptions<RootStackParamList> = {
             },
           },
           Medications: 'medications',
+          Appointments: 'appointments',
           Emergency: 'emergency',
           Profile: 'profile',
         },
@@ -146,14 +159,20 @@ const linking: LinkingOptions<RootStackParamList> = {
 
 // ─── Root Navigator ───────────────────────────────────────────────────────────
 export default function AppNavigator() {
-  const navRef = React.useRef<Parameters<typeof NavigationContainer>[0] & { getCurrentRoute?: () => { name?: string } | undefined }>(null);
+  const navRef = React.useRef<
+    Parameters<typeof NavigationContainer>[0] & {
+      getCurrentRoute?: () => { name?: string } | undefined;
+    }
+  >(null);
 
   return (
     <NavigationContainer
       ref={navRef as React.Ref<never>}
       linking={linking}
       onStateChange={() => {
-        const route = (navRef.current as { getCurrentRoute?: () => { name?: string } | undefined } | null)?.getCurrentRoute?.();
+        const route = (
+          navRef.current as { getCurrentRoute?: () => { name?: string } | undefined } | null
+        )?.getCurrentRoute?.();
         if (route?.name) analyticsService.screenView(route.name);
       }}
     >

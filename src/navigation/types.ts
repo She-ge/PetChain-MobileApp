@@ -18,6 +18,7 @@ export type RootStackParamList = {
 export type MainTabParamList = {
   PetList: undefined;
   Medications: undefined;
+  Appointments: undefined;
   Emergency: undefined;
   Profile: undefined;
 };
