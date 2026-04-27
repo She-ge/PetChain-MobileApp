@@ -4,8 +4,7 @@ const PHONE_REGEX = /^\+?[1-9]\d{6,14}$/;
 export const ERROR_MESSAGES = {
   email: 'Please enter a valid email address.',
   phone: 'Please enter a valid phone number (7–15 digits, optional leading +).',
-  password:
-    'Password must be at least 8 characters, include 1 uppercase letter and 1 number.',
+  password: 'Password must be at least 8 characters, include 1 uppercase letter and 1 number.',
   date: 'Please enter a valid date.',
   nonEmptyString: 'Value must be a non-empty string.',
 };
@@ -61,11 +60,7 @@ export function isValidDate(date: unknown): boolean {
   if (match) {
     const [, y, m, d] = match.map(Number);
     const utc = new Date(Date.UTC(y, m - 1, d));
-    return (
-      utc.getUTCFullYear() === y &&
-      utc.getUTCMonth() + 1 === m &&
-      utc.getUTCDate() === d
-    );
+    return utc.getUTCFullYear() === y && utc.getUTCMonth() + 1 === m && utc.getUTCDate() === d;
   }
 
   return true;

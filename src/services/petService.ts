@@ -1,14 +1,11 @@
 import axios from 'axios';
 
 import apiClient from './apiClient';
+import { getItem, setItem, removeItem } from './localDB';
+import offlineQueue from './offlineQueue';
 import { parseQRCodeData } from './qrCodeService';
 import { logError } from '../utils/errorLogger';
-import {
-  pickImage,
-  compressImage,
-  generateThumbnail,
-  uploadToStorage,
-} from '../utils/imageUtils';
+import { pickImage, compressImage, generateThumbnail, uploadToStorage } from '../utils/imageUtils';
 
 // ─────────────────────────────────────────────
 // TYPES
@@ -62,9 +59,6 @@ interface ApiResponse<T> {
   message?: string;
 }
 
-import { getItem, setItem, removeItem } from './localDB';
-import offlineQueue from './offlineQueue';
-
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const PETS_CACHE_KEY = '@pets_list';
@@ -76,7 +70,7 @@ async function cachePets(pets: Pet[]): Promise<void> {
   await setItem(PETS_CACHE_KEY, JSON.stringify(pets));
   // Also cache individual pets
   await Promise.all(
-    pets.map((pet) => setItem(`${PET_CACHE_PREFIX}${pet.id}`, JSON.stringify(pet)))
+    pets.map((pet) => setItem(`${PET_CACHE_PREFIX}${pet.id}`, JSON.stringify(pet))),
   );
 }
 
@@ -110,8 +104,8 @@ export class PetServiceError extends Error {
 // CONSTANTS
 // ─────────────────────────────────────────────
 
-const QR_DEEP_LINK_PREFIX = 'petchain://pet/';
-const PETS_ENDPOINT = '/pets';
+const _QR_DEEP_LINK_PREFIX = 'petchain://pet/';
+const _PETS_ENDPOINT = '/pets';
 
 // ─────────────────────────────────────────────
 // HELPERS
@@ -145,9 +139,7 @@ function toPetServiceError(error: unknown, context: Record<string, any>): PetSer
       error.message ||
       'Pet API request failed';
 
-    const code =
-      error.response?.data?.error?.code ||
-      (status ? `HTTP_${status}` : 'NETWORK_ERROR');
+    const code = error.response?.data?.error?.code || (status ? `HTTP_${status}` : 'NETWORK_ERROR');
 
     const finalError = new PetServiceError(message, code, status, error.response?.data);
 
@@ -279,12 +271,12 @@ export async function createPet(data: CreatePetInput): Promise<Pet> {
       };
       await offlineQueue.enqueue('pet', 'create', newPet as any);
       await setItem(`${PET_CACHE_PREFIX}${tempId}`, JSON.stringify(newPet));
-      
+
       // Update pets list cache
       const list = await getCachedPets();
       list.push(newPet);
       await setItem(PETS_CACHE_KEY, JSON.stringify(list));
-      
+
       return newPet;
     }
     throw toPetServiceError(error, { action: 'create_pet' });
@@ -312,15 +304,15 @@ export async function updatePet(petId: string, data: UpdatePetInput): Promise<Pe
         const updatedPet = { ...current, ...data, updatedAt: new Date().toISOString() };
         await offlineQueue.enqueue('pet', 'update', { id, ...data });
         await setItem(`${PET_CACHE_PREFIX}${id}`, JSON.stringify(updatedPet));
-        
+
         // Update list cache
         const list = await getCachedPets();
-        const idx = list.findIndex(p => p.id === id);
+        const idx = list.findIndex((p) => p.id === id);
         if (idx >= 0) {
           list[idx] = updatedPet;
           await setItem(PETS_CACHE_KEY, JSON.stringify(list));
         }
-        
+
         return updatedPet;
       }
     }
@@ -341,13 +333,13 @@ export async function deletePet(petId: string): Promise<void> {
     await apiClient.delete(`/pets/${encodeURIComponent(id)}`);
     await removeItem(`${PET_CACHE_PREFIX}${id}`);
     const list = await getCachedPets();
-    await setItem(PETS_CACHE_KEY, JSON.stringify(list.filter(p => p.id !== id)));
+    await setItem(PETS_CACHE_KEY, JSON.stringify(list.filter((p) => p.id !== id)));
   } catch (error) {
     if (axios.isAxiosError(error) && !error.response) {
       await offlineQueue.enqueue('pet', 'delete', { id });
       await removeItem(`${PET_CACHE_PREFIX}${id}`);
       const list = await getCachedPets();
-      await setItem(PETS_CACHE_KEY, JSON.stringify(list.filter(p => p.id !== id)));
+      await setItem(PETS_CACHE_KEY, JSON.stringify(list.filter((p) => p.id !== id)));
       return;
     }
     throw toPetServiceError(error, { action: 'delete_pet', petId: id });

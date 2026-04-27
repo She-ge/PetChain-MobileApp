@@ -10,8 +10,8 @@ import {
   View,
 } from 'react-native';
 
-import { searchMedicalRecords, type MedicalRecord } from '../services/medicalRecordService';
 import { HeaderOfflineStatus, useOfflineStatus } from '../components/OfflineIndicator';
+import { searchMedicalRecords, type MedicalRecord } from '../services/medicalRecordService';
 
 interface Props {
   petId: string;
@@ -46,12 +46,8 @@ const MedicalRecordSearchScreen: React.FC<Props> = ({ petId, onBack }) => {
         <Text style={styles.date}>{new Date(item.date).toLocaleDateString()}</Text>
       </View>
       {item.notes ? <Text style={styles.notes}>{item.notes}</Text> : null}
-      {item.veterinarian ? (
-        <Text style={styles.meta}>Vet: {item.veterinarian}</Text>
-      ) : null}
-      {!offlineStatus?.isOnline ? (
-        <Text style={styles.cachedChip}>Cached</Text>
-      ) : null}
+      {item.veterinarian ? <Text style={styles.meta}>Vet: {item.veterinarian}</Text> : null}
+      {!offlineStatus?.isOnline ? <Text style={styles.cachedChip}>Cached</Text> : null}
     </View>
   );
 

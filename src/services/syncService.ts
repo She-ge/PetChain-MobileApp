@@ -1,5 +1,5 @@
-import { getItem, setItem } from './localDB';
 import apiClient from './apiClient';
+import { getItem, setItem } from './localDB';
 import { networkMonitor } from '../utils/networkMonitor';
 
 // ==============================
@@ -42,7 +42,7 @@ export interface SyncStatus {
 
 const SYNC_QUEUE_KEY = '@sync_queue';
 const SYNC_STATUS_KEY = '@sync_status';
-const CONFLICTS_KEY = '@sync_conflicts';
+const _CONFLICTS_KEY = '@sync_conflicts';
 const MAX_RETRIES = 3;
 
 const DEFAULT_STATUS: SyncStatus = {
@@ -92,16 +92,18 @@ export class SyncService {
 
   // ── Pull from server ─────────────────────────────────────────────────────────
 
-  async pull(types: SyncEntityType[] = ['pet', 'appointment', 'medication', 'medicalRecord']): Promise<void> {
+  async pull(
+    types: SyncEntityType[] = ['pet', 'appointment', 'medication', 'medicalRecord'],
+  ): Promise<void> {
     for (const type of types) {
       try {
         let endpoint = `/${type}s`;
         if (type === 'medicalRecord') {
           // For medical records, we might need a different pull strategy if they are nested.
           // Assuming there's a user-level endpoint or we pull per pet.
-          // For now, let's try top-level /medical-records if available, 
+          // For now, let's try top-level /medical-records if available,
           // or skip if the API only supports nested.
-          endpoint = '/medical-records'; 
+          endpoint = '/medical-records';
         }
 
         const response = await apiClient.get<Record<string, unknown>[]>(endpoint);
@@ -210,7 +212,7 @@ export class SyncService {
   // ── Helpers ──
   private async syncItem(item: SyncItem): Promise<void> {
     let endpoint = `/${item.type}s`;
-    
+
     // Handle nested medical record endpoints
     if (item.type === 'medicalRecord') {
       const petId = item.data.petId as string;
@@ -222,17 +224,20 @@ export class SyncService {
     }
 
     switch (item.action) {
-      case 'create':
+      case 'create': {
         await apiClient.post(endpoint, item.data);
         break;
-      case 'update':
+      }
+      case 'update': {
         const id = item.data.id as string;
         await apiClient.put(`${endpoint}/${id}`, item.data);
         break;
-      case 'delete':
+      }
+      case 'delete': {
         const delId = item.data.id as string;
         await apiClient.delete(`${endpoint}/${delId}`);
         break;
+      }
     }
   }
 

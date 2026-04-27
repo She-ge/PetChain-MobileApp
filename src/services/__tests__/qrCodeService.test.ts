@@ -1,12 +1,9 @@
-import { describe, it, expect } from "vitest";
-import {
-  generatePetQRCode,
-  parseQRCodeData,
-  validateQRCode,
-} from "../qrCodeService";
+import { describe, it, expect } from 'vitest';
+
+import { generatePetQRCode, parseQRCodeData, validateQRCode } from '../qrCodeService';
 
 // ✅ LOCAL TYPES (no dependency on service exports)
-type Species = "dog" | "cat" | "bird";
+type Species = 'dog' | 'cat' | 'bird';
 
 type Pet = {
   id: string;
@@ -19,42 +16,38 @@ type Pet = {
 };
 
 const mockPet: Pet = {
-  id: "pet-123",
-  name: "Buddy",
-  species: "dog",
-  ownerId: "user-1",
-  qrCode: "qr",
-  createdAt: "2024-01-01",
-  updatedAt: "2024-01-01",
+  id: 'pet-123',
+  name: 'Buddy',
+  species: 'dog',
+  ownerId: 'user-1',
+  qrCode: 'qr',
+  createdAt: '2024-01-01',
+  updatedAt: '2024-01-01',
 };
 
-describe("qrCodeService", () => {
-  describe("generatePetQRCode", () => {
-    it("should generate QR code", async () => {
+describe('qrCodeService', () => {
+  describe('generatePetQRCode', () => {
+    it('should generate QR code', async () => {
       const qrCode = await generatePetQRCode(mockPet);
 
-      expect(typeof qrCode).toBe("string");
+      expect(typeof qrCode).toBe('string');
       expect(qrCode.length).toBeGreaterThan(0);
 
       const parsed = parseQRCodeData(qrCode);
       expect(parsed.petId).toBe(mockPet.id);
     });
 
-    it("should throw for empty id", async () => {
-      await expect(
-        generatePetQRCode({ ...mockPet, id: "" })
-      ).rejects.toThrow();
+    it('should throw for empty id', async () => {
+      await expect(generatePetQRCode({ ...mockPet, id: '' })).rejects.toThrow();
     });
 
-    it("should throw for invalid id", async () => {
-      await expect(
-        generatePetQRCode({ ...mockPet, id: "bad id" })
-      ).rejects.toThrow();
+    it('should throw for invalid id', async () => {
+      await expect(generatePetQRCode({ ...mockPet, id: 'bad id' })).rejects.toThrow();
     });
   });
 
-  describe("parseQRCodeData", () => {
-    it("should parse valid QR", async () => {
+  describe('parseQRCodeData', () => {
+    it('should parse valid QR', async () => {
       const qrCode = await generatePetQRCode(mockPet);
       const parsed = parseQRCodeData(qrCode);
 
@@ -62,16 +55,16 @@ describe("qrCodeService", () => {
     });
   });
 
-  describe("validateQRCode", () => {
-    it("should validate correct QR", async () => {
+  describe('validateQRCode', () => {
+    it('should validate correct QR', async () => {
       const qrCode = await generatePetQRCode(mockPet);
       const result = validateQRCode(qrCode);
 
       expect(result.valid).toBe(true);
     });
 
-    it("should reject tampered QR", () => {
-      const result = validateQRCode("tampered");
+    it('should reject tampered QR', () => {
+      const result = validateQRCode('tampered');
       expect(result.valid).toBe(false);
     });
   });

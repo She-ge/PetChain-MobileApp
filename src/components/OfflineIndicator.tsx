@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Animated, Platform } from 'react-native';
+import { Text, StyleSheet, Animated, Platform } from 'react-native';
+
 import { offlineQueue, type OfflineQueueStatus } from '../services/offlineQueue';
 
 const OfflineIndicator: React.FC = () => {
@@ -32,7 +33,7 @@ const OfflineIndicator: React.FC = () => {
         useNativeDriver: true,
       }).start();
     }
-  }, [status]);
+  }, [status, visibleAnim]);
 
   if (!status) return null;
 
@@ -64,7 +65,9 @@ const OfflineIndicator: React.FC = () => {
   });
 
   return (
-    <Animated.View style={[styles.container, { backgroundColor: bgColor, transform: [{ translateY }] }]}>
+    <Animated.View
+      style={[styles.container, { backgroundColor: bgColor, transform: [{ translateY }] }]}
+    >
       <Text style={styles.text}>{message}</Text>
     </Animated.View>
   );

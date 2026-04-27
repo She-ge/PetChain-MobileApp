@@ -9,9 +9,9 @@ import {
   View,
 } from 'react-native';
 
-import petService, { type Pet } from '../services/petService';
-import { OptimizedImage } from '../components/OptimizedImage';
 import { HeaderOfflineStatus, useOfflineStatus } from '../components/OfflineIndicator';
+import { OptimizedImage } from '../components/OptimizedImage';
+import petService, { type Pet } from '../services/petService';
 
 interface Props {
   onSelectPet: (pet: Pet) => void;
@@ -69,9 +69,7 @@ const PetListScreen: React.FC<Props> = ({ onSelectPet, onAddPet }) => {
             Born: {new Date(item.dateOfBirth).toLocaleDateString()}
           </Text>
         )}
-        {!offlineStatus?.isOnline ? (
-          <Text style={styles.cachedChip}>Cached</Text>
-        ) : null}
+        {!offlineStatus?.isOnline ? <Text style={styles.cachedChip}>Cached</Text> : null}
       </View>
       <Text style={styles.chevron}>›</Text>
     </TouchableOpacity>
@@ -108,7 +106,11 @@ const PetListScreen: React.FC<Props> = ({ onSelectPet, onAddPet }) => {
           keyExtractor={(p) => p.id}
           renderItem={renderItem}
           contentContainerStyle={styles.list}
-          ListEmptyComponent={<Text style={styles.empty} accessibilityLiveRegion="polite">No pets yet. Add one!</Text>}
+          ListEmptyComponent={
+            <Text style={styles.empty} accessibilityLiveRegion="polite">
+              No pets yet. Add one!
+            </Text>
+          }
           onRefresh={load}
           refreshing={loading}
         />

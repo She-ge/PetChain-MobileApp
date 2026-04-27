@@ -1,9 +1,10 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
+
 import './src/i18n';
+import OfflineIndicator from './src/components/OfflineIndicator';
 import { useSplashGuard } from './src/components/SplashGuard';
 import AppNavigator from './src/navigation';
-import OfflineIndicator from './src/components/OfflineIndicator';
 
 export default function App() {
   const { appReady } = useSplashGuard();
