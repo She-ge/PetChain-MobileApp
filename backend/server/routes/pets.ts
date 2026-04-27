@@ -1,5 +1,7 @@
 import express from 'express';
 
+import { authenticateJWT, type AuthenticatedRequest } from '../../middleware/auth';
+import { UserRole } from '../../models/UserRole';
 import { ok, sendError } from '../response';
 import { store, type StoredMedicalRecord, type StoredPet } from '../store';
 
@@ -36,7 +38,15 @@ function medicalToMobileRow(r: StoredMedicalRecord) {
   };
 }
 
-router.get('/owner/:ownerId', (req, res) => {
+// All pets routes require authentication
+router.use(authenticateJWT);
+
+router.get('/owner/:ownerId', (req: AuthenticatedRequest, res) => {
+  // Only admin or the owner themselves can see their pets
+  if (req.user!.role !== UserRole.ADMIN && req.user!.id !== req.params.ownerId) {
+    return sendError(res, 403, 'FORBIDDEN', 'You do not have permission to view these pets');
+  }
+
   const list = [...store.pets.values()].filter((p) => p.ownerId === req.params.ownerId).map(toPetResponse);
   return res.json(ok(list));
 });
@@ -52,8 +62,16 @@ router.get('/qr/:qrCode', (req, res) => {
   return res.json(ok(toPetResponse(pet)));
 });
 
-router.get('/:petId/medical-records', (req, res) => {
+router.get('/:petId/medical-records', (req: AuthenticatedRequest, res) => {
   const { petId } = req.params;
+  const pet = store.pets.get(petId);
+  if (!pet) return sendError(res, 404, 'NOT_FOUND', 'Pet not found');
+
+  // Only admin, vet, or the owner can see medical records
+  if (req.user!.role === UserRole.OWNER && req.user!.id !== pet.ownerId) {
+    return sendError(res, 403, 'FORBIDDEN', 'You do not have permission to view these medical records');
+  }
+
   const type = req.query.type as string | undefined;
   const page = Math.max(1, Number(req.query.page) || 1);
   const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 20));
@@ -75,26 +93,48 @@ router.get('/:petId/medical-records', (req, res) => {
   });
 });
 
-router.get('/', (req, res) => {
+router.get('/', (req: AuthenticatedRequest, res) => {
   const ownerId = req.query.ownerId as string | undefined;
+  
+  // If ownerId is provided, filter. Otherwise, only admin/vet can see all pets.
+  if (!ownerId && req.user!.role === UserRole.OWNER) {
+    return sendError(res, 403, 'FORBIDDEN', 'OwnerId parameter is required for pet owners');
+  }
+  
+  if (ownerId && req.user!.role === UserRole.OWNER && req.user!.id !== ownerId) {
+    return sendError(res, 403, 'FORBIDDEN', 'You do not have permission to view these pets');
+  }
+
   let list = [...store.pets.values()];
   if (ownerId) list = list.filter((p) => p.ownerId === ownerId);
   return res.json(ok(list.map(toPetResponse)));
 });
 
-router.get('/:id', (req, res) => {
+router.get('/:id', (req: AuthenticatedRequest, res) => {
   const pet = store.pets.get(req.params.id);
   if (!pet) return sendError(res, 404, 'NOT_FOUND', 'Pet not found');
+
+  // Only admin, vet, or owner can see pet details
+  if (req.user!.role === UserRole.OWNER && req.user!.id !== pet.ownerId) {
+    return sendError(res, 403, 'FORBIDDEN', 'You do not have permission to view this pet');
+  }
+
   return res.json(ok(toPetResponse(pet)));
 });
 
-router.post('/', (req, res) => {
+router.post('/', (req: AuthenticatedRequest, res) => {
   const { name, species, breed, dateOfBirth, microchipId, photoUrl, thumbnailUrl, ownerId } = req.body as Partial<
     StoredPet & { thumbnailUrl?: string }
   >;
   if (!name?.trim() || !species?.trim() || !ownerId?.trim()) {
     return sendError(res, 400, 'VALIDATION_ERROR', 'name, species, and ownerId are required');
   }
+  
+  // Only admin or the owner themselves can create a pet for that owner
+  if (req.user!.role !== UserRole.ADMIN && req.user!.id !== ownerId) {
+    return sendError(res, 403, 'FORBIDDEN', 'You do not have permission to create a pet for this owner');
+  }
+
   if (!store.users.get(ownerId.trim())) {
     return sendError(res, 400, 'VALIDATION_ERROR', 'ownerId must reference an existing user');
   }
@@ -122,9 +162,15 @@ router.post('/', (req, res) => {
   return res.status(201).json(ok(toPetResponse(row), 'Pet created'));
 });
 
-router.put('/:id', (req, res) => {
+router.put('/:id', (req: AuthenticatedRequest, res) => {
   const pet = store.pets.get(req.params.id);
   if (!pet) return sendError(res, 404, 'NOT_FOUND', 'Pet not found');
+
+  // Only admin or the owner can update the pet
+  if (req.user!.role !== UserRole.ADMIN && req.user!.id !== pet.ownerId) {
+    return sendError(res, 403, 'FORBIDDEN', 'You do not have permission to update this pet');
+  }
+
   const body = req.body as Partial<StoredPet>;
   const t = new Date().toISOString();
   const next: StoredPet = {
@@ -140,17 +186,24 @@ router.put('/:id', (req, res) => {
     ...(body.thumbnailUrl !== undefined
       ? { thumbnailUrl: body.thumbnailUrl ? String(body.thumbnailUrl) : undefined }
       : {}),
-    ...(body.ownerId !== undefined ? { ownerId: String(body.ownerId) } : {}),
+    // Only admin can change owner
+    ...(body.ownerId !== undefined && req.user!.role === UserRole.ADMIN ? { ownerId: String(body.ownerId) } : {}),
     updatedAt: t,
   };
   store.pets.set(pet.id, next);
   return res.json(ok(toPetResponse(next), 'Pet updated'));
 });
 
-router.delete('/:id', (req, res) => {
-  if (!store.pets.delete(req.params.id)) {
-    return sendError(res, 404, 'NOT_FOUND', 'Pet not found');
+router.delete('/:id', (req: AuthenticatedRequest, res) => {
+  const pet = store.pets.get(req.params.id);
+  if (!pet) return sendError(res, 404, 'NOT_FOUND', 'Pet not found');
+
+  // Only admin or the owner can delete the pet
+  if (req.user!.role !== UserRole.ADMIN && req.user!.id !== pet.ownerId) {
+    return sendError(res, 403, 'FORBIDDEN', 'You do not have permission to delete this pet');
   }
+
+  store.pets.delete(req.params.id);
   for (const u of store.users.values()) {
     u.pets = u.pets.filter((p) => p.id !== req.params.id);
   }

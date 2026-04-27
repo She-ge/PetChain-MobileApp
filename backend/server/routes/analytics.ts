@@ -1,5 +1,7 @@
 import express from 'express';
 
+import { authenticateJWT, authorizeRoles } from '../../middleware/auth';
+import { UserRole } from '../../models/UserRole';
 import { ok, sendError } from '../response';
 
 const router = express.Router();
@@ -13,7 +15,8 @@ interface AnalyticsEvent {
 
 const events: AnalyticsEvent[] = [];
 
-router.post('/events', (req, res) => {
+// Analytics events can be posted by any authenticated user
+router.post('/events', authenticateJWT, (req, res) => {
   const { type, name, meta, timestamp } = req.body as Partial<AnalyticsEvent>;
   if (!type || !name) {
     return sendError(res, 400, 'VALIDATION_ERROR', 'type and name are required');
@@ -22,7 +25,8 @@ router.post('/events', (req, res) => {
   return res.status(201).json(ok(null, 'Event recorded'));
 });
 
-router.get('/dashboard', (_req, res) => {
+// Dashboard is restricted to admins
+router.get('/dashboard', authenticateJWT, authorizeRoles(UserRole.ADMIN), (_req, res) => {
   const counts: Record<string, Record<string, number>> = {
     screen_view: {},
     feature_usage: {},

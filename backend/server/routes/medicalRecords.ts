@@ -1,5 +1,7 @@
 import express from 'express';
 
+import { authenticateJWT, authorizeRoles, type AuthenticatedRequest } from '../../middleware/auth';
+import { UserRole } from '../../models/UserRole';
 import { ok, sendError } from '../response';
 import { store, type StoredMedicalRecord } from '../store';
 
@@ -21,15 +23,40 @@ function toApiRecord(r: StoredMedicalRecord) {
   };
 }
 
-router.get('/pet/:petId', (req, res) => {
+// All medical record routes require authentication
+router.use(authenticateJWT);
+
+router.get('/pet/:petId', (req: AuthenticatedRequest, res) => {
+  const petId = req.params.petId as string;
+  const pet = store.pets.get(petId);
+  if (!pet) return sendError(res, 404, 'NOT_FOUND', 'Pet not found');
+
+  // Only admin, vet, or the owner can view medical records
+  if (req.user!.role === UserRole.OWNER && req.user!.id !== pet.ownerId) {
+    return sendError(res, 403, 'FORBIDDEN', 'You do not have permission to view these medical records');
+  }
+
   const list = [...store.medicalRecords.values()]
-    .filter((r) => r.petId === req.params.petId)
+    .filter((r) => r.petId === petId)
     .map(toApiRecord);
   return res.json(ok(list));
 });
 
-router.get('/', (req, res) => {
+router.get('/', (req: AuthenticatedRequest, res) => {
   const { petId, vetId, type } = req.query as { petId?: string; vetId?: string; type?: string };
+  
+  // Owners must provide petId
+  if (req.user!.role === UserRole.OWNER && !petId) {
+    return sendError(res, 403, 'FORBIDDEN', 'PetId parameter is required for pet owners');
+  }
+
+  if (petId) {
+    const pet = store.pets.get(petId);
+    if (pet && req.user!.role === UserRole.OWNER && req.user!.id !== pet.ownerId) {
+      return sendError(res, 403, 'FORBIDDEN', 'You do not have permission to view these medical records');
+    }
+  }
+
   let list = [...store.medicalRecords.values()];
   if (petId) list = list.filter((r) => r.petId === petId);
   if (vetId) list = list.filter((r) => r.vetId === vetId);
@@ -38,13 +65,21 @@ router.get('/', (req, res) => {
   return res.json(ok(list.map(toApiRecord)));
 });
 
-router.get('/:id', (req, res) => {
+router.get('/:id', (req: AuthenticatedRequest, res) => {
   const row = store.medicalRecords.get(req.params.id);
   if (!row) return sendError(res, 404, 'NOT_FOUND', 'Medical record not found');
+  
+  const pet = store.pets.get(row.petId);
+  // Only admin, vet, or the owner can view this record
+  if (pet && req.user!.role === UserRole.OWNER && req.user!.id !== pet.ownerId) {
+    return sendError(res, 403, 'FORBIDDEN', 'You do not have permission to view this medical record');
+  }
+
   return res.json(ok(toApiRecord(row)));
 });
 
-router.post('/', (req, res) => {
+// Only Admin and Vet can create, update, or delete medical records
+router.post('/', authorizeRoles(UserRole.ADMIN, UserRole.VET), (req, res) => {
   const { petId, vetId, type, diagnosis, treatment, notes, visitDate, nextVisitDate } = req.body as Partial<
     StoredMedicalRecord
   >;
@@ -73,7 +108,7 @@ router.post('/', (req, res) => {
   return res.status(201).json(ok(toApiRecord(row), 'Medical record created'));
 });
 
-router.put('/:id', (req, res) => {
+router.put('/:id', authorizeRoles(UserRole.ADMIN, UserRole.VET), (req, res) => {
   const row = store.medicalRecords.get(req.params.id);
   if (!row) return sendError(res, 404, 'NOT_FOUND', 'Medical record not found');
   const b = req.body as Partial<StoredMedicalRecord>;
@@ -94,7 +129,7 @@ router.put('/:id', (req, res) => {
   return res.json(ok(toApiRecord(next), 'Medical record updated'));
 });
 
-router.delete('/:id', (req, res) => {
+router.delete('/:id', authorizeRoles(UserRole.ADMIN, UserRole.VET), (req, res) => {
   if (!store.medicalRecords.delete(req.params.id)) {
     return sendError(res, 404, 'NOT_FOUND', 'Medical record not found');
   }

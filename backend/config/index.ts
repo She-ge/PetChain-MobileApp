@@ -41,6 +41,7 @@ const config = {
     maxImageSizeMB: CONSTANTS.MAX_IMAGE_SIZE_MB,
     paginationLimit: CONSTANTS.PAGINATION_LIMIT,
     tokenExpiryDays: CONSTANTS.TOKEN_EXPIRY_DAYS,
+    jwtSecret: process.env.JWT_SECRET || 'petchain-dev-secret-key-change-in-prod',
   },
 } as const;
 

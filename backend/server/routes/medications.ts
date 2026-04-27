@@ -1,24 +1,49 @@
 import express from 'express';
 
-import { sendError } from '../response';
+import { authenticateJWT, authorizeRoles, type AuthenticatedRequest } from '../../middleware/auth';
+import { UserRole } from '../../models/UserRole';
+import { ok, sendError } from '../response';
 import { store, type StoredMedication } from '../store';
 
 const router = express.Router();
 
-router.get('/', (req, res) => {
+// All medication routes require authentication
+router.use(authenticateJWT);
+
+router.get('/', (req: AuthenticatedRequest, res) => {
   const petId = req.query.petId as string | undefined;
+  
+  // Owners must provide petId
+  if (req.user!.role === UserRole.OWNER && !petId) {
+    return sendError(res, 403, 'FORBIDDEN', 'PetId parameter is required for pet owners');
+  }
+
+  if (petId) {
+    const pet = store.pets.get(petId);
+    if (pet && req.user!.role === UserRole.OWNER && req.user!.id !== pet.ownerId) {
+      return sendError(res, 403, 'FORBIDDEN', 'You do not have permission to view these medications');
+    }
+  }
+
   let list = [...store.medications.values()];
   if (petId) list = list.filter((m) => m.petId === petId);
-  return res.json(list);
+  return res.json(ok(list));
 });
 
-router.get('/:id', (req, res) => {
+router.get('/:id', (req: AuthenticatedRequest, res) => {
   const row = store.medications.get(req.params.id);
   if (!row) return sendError(res, 404, 'NOT_FOUND', 'Medication not found');
-  return res.json(row);
+  
+  const pet = store.pets.get(row.petId);
+  if (pet && req.user!.role === UserRole.OWNER && req.user!.id !== pet.ownerId) {
+    return sendError(res, 403, 'FORBIDDEN', 'You do not have permission to view this medication');
+  }
+
+  return res.json(ok(row));
 });
 
-router.post('/', (req, res) => {
+// Admin and Vet can create, update, or delete medications
+router.post('/', authorizeRoles(UserRole.ADMIN, UserRole.VET), (req, res) => {
   const body = req.body as Partial<StoredMedication>;
   if (!body.petId?.trim() || !body.name?.trim() || !body.dosage?.trim() || !body.frequency?.trim() || !body.startDate?.trim()) {
     return sendError(res, 400, 'VALIDATION_ERROR', 'petId, name, dosage, frequency, and startDate are required');
@@ -38,10 +63,10 @@ router.post('/', (req, res) => {
     active: body.active !== false,
   };
   store.medications.set(id, row);
-  return res.status(201).json(row);
+  return res.status(201).json(ok(row, 'Medication created'));
 });
 
-router.put('/:id', (req, res) => {
+router.put('/:id', authorizeRoles(UserRole.ADMIN, UserRole.VET), (req, res) => {
   const row = store.medications.get(req.params.id);
   if (!row) return sendError(res, 404, 'NOT_FOUND', 'Medication not found');
   const b = req.body as Partial<StoredMedication>;
@@ -56,14 +81,14 @@ router.put('/:id', (req, res) => {
     ...(b.petId !== undefined ? { petId: String(b.petId) } : {}),
   };
   store.medications.set(row.id, next);
-  return res.json(next);
+  return res.json(ok(next, 'Medication updated'));
 });
 
-router.delete('/:id', (req, res) => {
+router.delete('/:id', authorizeRoles(UserRole.ADMIN, UserRole.VET), (req, res) => {
   if (!store.medications.delete(req.params.id)) {
     return sendError(res, 404, 'NOT_FOUND', 'Medication not found');
   }
-  return res.status(204).send();
+  return res.json(ok(null, 'Medication deleted'));
 });
 
 export default router;

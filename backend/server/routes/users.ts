@@ -1,5 +1,6 @@
 import express from 'express';
 
+import { authenticateJWT, authorizeRoles, type AuthenticatedRequest } from '../../middleware/auth';
 import { UserRole } from '../../models/UserRole';
 import { ok, sendError } from '../response';
 import { store, type StoredUser } from '../store';
@@ -11,25 +12,13 @@ function sanitize(u: StoredUser) {
   return rest;
 }
 
-function resolveUserFromAuth(authHeader: string | undefined): StoredUser | null {
-  if (!authHeader?.startsWith('Bearer ')) return null;
-  const token = authHeader.slice(7).trim();
-  if (!token) return null;
-  if (token.startsWith('mock-')) {
-    const id = token.slice('mock-'.length);
-    return store.users.get(id) ?? null;
-  }
-  const first = [...store.users.values()][0];
-  return first ?? null;
-}
-
-router.get('/me', (req, res) => {
-  const user = resolveUserFromAuth(req.headers.authorization);
-  if (!user) return sendError(res, 401, 'UNAUTHORIZED', 'Missing or invalid Authorization header');
+router.get('/me', authenticateJWT, (req: AuthenticatedRequest, res) => {
+  const user = store.users.get(req.user!.id);
+  if (!user) return sendError(res, 404, 'NOT_FOUND', 'User not found');
   return res.json(ok(sanitize(user)));
 });
 
-router.get('/', (req, res) => {
+router.get('/', authenticateJWT, authorizeRoles(UserRole.ADMIN), (req, res) => {
   const role = req.query.role as string | undefined;
   const search = (req.query.search as string | undefined)?.toLowerCase();
   const page = Math.max(1, Number(req.query.page) || 1);
@@ -65,7 +54,7 @@ router.get('/', (req, res) => {
   });
 });
 
-router.get('/:id', (req, res) => {
+router.get('/:id', authenticateJWT, (req, res) => {
   const user = store.users.get(req.params.id);
   if (!user) return sendError(res, 404, 'NOT_FOUND', 'User not found');
   return res.json(ok(sanitize(user)));
@@ -101,23 +90,29 @@ router.post('/', (req, res) => {
   return res.status(201).json(ok(sanitize(row), 'User created'));
 });
 
-router.put('/:id', (req, res) => {
+router.put('/:id', authenticateJWT, (req: AuthenticatedRequest, res) => {
   const user = store.users.get(req.params.id);
   if (!user) return sendError(res, 404, 'NOT_FOUND', 'User not found');
+  
+  // Only admin or the user themselves can update
+  if (req.user!.role !== UserRole.ADMIN && req.user!.id !== req.params.id) {
+    return sendError(res, 403, 'FORBIDDEN', 'You do not have permission to update this user');
+  }
+
   const { name, phone, role, isEmailVerified } = req.body as Partial<StoredUser>;
   const next: StoredUser = {
     ...user,
     ...(name !== undefined ? { name: String(name) } : {}),
     ...(phone !== undefined ? { phone: String(phone) } : {}),
-    ...(role !== undefined ? { role: role as UserRole } : {}),
-    ...(isEmailVerified !== undefined ? { isEmailVerified: Boolean(isEmailVerified) } : {}),
+    ...(role !== undefined && req.user!.role === UserRole.ADMIN ? { role: role as UserRole } : {}),
+    ...(isEmailVerified !== undefined && req.user!.role === UserRole.ADMIN ? { isEmailVerified: Boolean(isEmailVerified) } : {}),
     updatedAt: new Date().toISOString(),
   };
   store.users.set(user.id, next);
   return res.json(ok(sanitize(next), 'User updated'));
 });
 
-router.delete('/:id', (req, res) => {
+router.delete('/:id', authenticateJWT, authorizeRoles(UserRole.ADMIN), (req, res) => {
   if (!store.users.delete(req.params.id)) {
     return sendError(res, 404, 'NOT_FOUND', 'User not found');
   }
